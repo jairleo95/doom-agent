@@ -1,6 +1,6 @@
 {
     "agent" : {
-        "max_training_steps": 10e5,
+        "max_training_steps": 1000000,
         "experience_memory_size": 10000,
         "replay_start_size": 10000,
         "replay_batch_size": 32,

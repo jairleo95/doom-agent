@@ -33,10 +33,7 @@ class DeepQNetwork(nn.Module):
 
 
     def forward(self, observation):
-        #observation = np.moveaxis(observation, 3, 1)
-        #print("observation.shape:"+str(np.array(observation).shape))
         observation = T.Tensor(observation).to(self.device)
-
         ##observation = observation.view(-1, 1, 84, 84)
         observation = observation.view(-1, 4, 84, 84)
         observation = F.relu(self.conv1_bn(self.conv1(observation)))
@@ -50,8 +47,7 @@ class DeepQNetwork(nn.Module):
         return actions
 
 class Agent(object):
-    def __init__(self, params,
-                 maxMemorySize, actionSpace=[0,1,2]):
+    def __init__(self, params, maxMemorySize, actionSpace=[0,1,2], writer=None):
         self.params = params
 
         self.gamma = self.params['gamma']
@@ -72,8 +68,8 @@ class Agent(object):
         self.policy = self.epsilon_greedy_Q
         self.epsilon_max = self.params['epsilon_max']
         self.epsilon_min = self.params['epsilon_min']
-        self.max_steps = self.params['epsilon_decay_final_step']
-        self.epsilon_decay = LinearDecaySchedule(initial_value=self.epsilon_max, final_value=self.epsilon_min, max_steps=self.max_steps)
+        self.eps_max_steps = self.params['epsilon_decay_final_step']
+        self.epsilon_decay = LinearDecaySchedule(initial_value=self.epsilon_max, final_value=self.epsilon_min, max_steps=self.eps_max_steps)
 
         self.step_num = 0
 
@@ -83,7 +79,8 @@ class Agent(object):
         self.memory = []
         self.memCntr = 0
 
-        self.learn_step_counter = 0
+        self.writer = writer
+
 
         #Exp replay
         #self.memory = ExperienceMemory(capacity=int(self.params['experience_memory_size']))
@@ -95,9 +92,10 @@ class Agent(object):
         return self.policy(state), explore_probability
 
     def epsilon_greedy_Q(self, state):
-        ##writer.add_scalar("DQL/epsilon", self.epsilon_decay(self.step_num), self.step_num)
+        self.writer.add_scalar("DQL/epsilon", self.epsilon_decay(self.step_num), self.step_num)
 
         self.step_num += 1  #Para saber en que iteraciones voy
+        #print("step_num: "+str(self.step_num))
 
         if random.random() < self.epsilon_decay(self.step_num) and not self.params["test"]:
             #print("Take a random step")
@@ -119,7 +117,7 @@ class Agent(object):
 
         return np.array(miniBatch)
 
-    def learn(self, batch_size):
+    def learn(self, batch_size, writer):
         if self.step_num % self.params['target_network_update_frequency'] == 0:
             #copiar pesos
             self.Q_target.load_state_dict(self.Q.state_dict())
@@ -143,6 +141,8 @@ class Agent(object):
 
         self.Q_optimizer.zero_grad()
         td_error.backward()
+
+        writer.add_scalar("DQL/td_error", td_error.mean(), self.step_num)
         self.Q_optimizer.step()
 
     def storeTransition(self, state, action, reward, state_):

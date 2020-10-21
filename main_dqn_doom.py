@@ -13,6 +13,7 @@ import random
 from skimage import transform
 
 from res.DeepQLearner.utils.params_manager import ParamsManager
+from res.dql_tf2.utils import plotLearning
 
 # tensorboardX
 from tensorboardX import SummaryWriter
@@ -82,19 +83,19 @@ def stack_frames(stacked_frames, state, is_new_episode):
         stacked_frames.append(frame)
         stacked_frames.append(frame)
         # Stack the frames
-        stacked_state = np.stack(stacked_frames, axis=2)
+        stacked_state = np.stack(stacked_frames, axis=0)
         #https://machinelearningmastery.com/a-gentle-introduction-to-channels-first-and-channels-last-image-formats-for-deep-learning/
         #change channel ordering
-        stacked_state = np.moveaxis(stacked_state, 2, 0)
+        #stacked_state = np.moveaxis(stacked_state, 2, 0)
 
     else:
         # Append frame to deque, automatically removes the oldest frame
         stacked_frames.append(frame)
         # Build the stacked state (first dimension specifies different frames)
-        stacked_state = np.stack(stacked_frames, axis=2)
-        stacked_state = np.moveaxis(stacked_state, 2, 0)
+        stacked_state = np.stack(stacked_frames, axis=0)
+        #stacked_state = np.moveaxis(stacked_state, 2, 0)
         #show_image(stacked_state)
-
+    #print("stacked_state.shape:"+str(stacked_state.shape))
     return stacked_state, stacked_frames
 
 
@@ -123,7 +124,7 @@ manager.export_agent_params(summary_filename + "/" + "agent_params.json")
 manager.export_environment_params(summary_filename + "/" + "environment_params.json")
 
 # contador global de ejecuciones
-global_step_num = 0
+#global_step_num = 0
 
 print("Cuda is available:"+ str(torch.cuda.is_available()))
 use_cuda = manager.get_agent_params()['use_cuda']
@@ -142,20 +143,12 @@ if __name__ == '__main__':
 
     game, possible_actions = create_environment()
 
-    ### MODEL HYPERPARAMETERS
-    #state_size = [84, 84, 4]  # Our input is a stack of 4 frames hence 84x84x4 (Width, height, channels)
-    #action_size = game.get_available_buttons_size()  # 3 possible actions: left, right, shoot
-
-    ### TRAINING HYPERPARAMETERS
-    #max_steps = agent_params["total_episodes"]  #Max possible steps in an episode
-    #memory_size = 5000
     training = True
 
     agent_params = manager.get_agent_params()
     agent_params["test"] = args.test
 
-    brain = Agent(agent_params,
-                  maxMemorySize=agent_params["experience_memory_size"])
+    brain = Agent(agent_params, maxMemorySize=agent_params["experience_memory_size"], writer= writer)
 
     # Render the environment
     game.new_episode()
@@ -195,18 +188,22 @@ if __name__ == '__main__':
     print('')
     print('Done initializing memory')
 
-
     #Training
     if training:
         # Init the game
         game.init()
         episode_rewards = list()
-        for episode in range(agent_params["total_episodes"]):
+        scores = []
+        numGames = agent_params["total_episodes"]
+        epsHistory = []
+        for episode in range(numGames):
             total_reward = 0.0
             done = False
             step = 0
+            epsilon = brain.epsilon_decay(brain.step_num)
+            epsHistory.append(epsilon)
 
-            print('[Starting episode: ',episode,', epsilon: %.4f' % brain.epsilon_decay(brain.step_num) + ' ]')
+            print('Starting episode: ',episode,', epsilon: %.4f' % epsilon + ' ')
 
             #env reset
             game.new_episode()
@@ -216,10 +213,8 @@ if __name__ == '__main__':
             frames = state
             #frames.shape:(4, 84, 84)
 
-            print("Steps taken: ")
+            steps_taken = 0
             while step < agent_params["max_steps"]:
-
-                #sys.stdout.write(f"\r{str(step)}")
 
                 action, explore_probability = brain.predict_action(frames)
                 # do the action
@@ -227,6 +222,7 @@ if __name__ == '__main__':
 
                 total_reward += reward
                 step += 1
+                steps_taken = step
                 episode_rewards.append(reward)
 
                 if done:
@@ -239,36 +235,42 @@ if __name__ == '__main__':
                     # the episode ends so no next state
                     next_state = np.zeros((84, 84), dtype=np.int)
                     next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
-
                     # Set step = max_steps to end the episode
-                    #step = agent_params["max_steps"]
-
-                    # Get the total reward of the episode
-                    total_reward = np.sum(episode_rewards)
-
+                    step = agent_params["max_steps"]
                     brain.storeTransition(state, action, reward, next_state)
 
                 else:
-                    # Get the next state
+                    # Get the next state and Stack the frame of the next_state
                     next_state = game.get_state().screen_buffer
-
-                    # Stack the frame of the next_state
                     next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
-
-                    # Add experience to memory
                     brain.storeTransition(state, action, reward, next_state)
-
                     # st+1 is now our current state
                     state = next_state
 
-                brain.learn(agent_params['batch_size'])
+                brain.learn(agent_params['batch_size'], writer)
                 lastAction = action
-            print('Episode Finished: {}'.format(episode), 'Iterations: {}'.format(step),
-                  'Total reward: {}'.format(total_reward),
-                  # 'Training loss: {:.4f}'.format(brain.loss),
-                  'Explore P: {:.4f}'.format(explore_probability)
-                  )
 
-    ##Test
+            scores.append(total_reward)
+            print('Episode finished: {}, '.format(episode),
+                  'iterations: {}, '.format(steps_taken),
+                  'total reward: {}, '.format(total_reward),
+                  'mean reward: {}, '.format(np.mean(episode_rewards)),
+                  'best reward: {}, '.format(brain.best_reward)
+                  # 'Training loss: {:.4f}'.format(brain.loss),
+                  #'explore probability: {:.4f}'.format(explore_probability)
+                  )
+            print("")
+            writer.add_scalar("main/ep_reward", total_reward, episode)
+            writer.add_scalar("main/mean_ep_reward", np.mean(episode_rewards), episode)
+            writer.add_scalar("main/max_ep_reward", brain.best_reward, episode)
+
+        #Plotting
+        x = [i + 1 for i in range(numGames)]
+        fileName = str(numGames) + 'Games' + 'Gamma' + str(brain.gamma) + 'Alpha' + str(brain.lr) + 'Memory' + str(brain.memSize) + '.png'
+        plotLearning(x, scores, epsHistory, fileName)
+
+        writer.close()
+        #tensorboard --logdir=logs/
+        #http://localhost:6006/
 
 

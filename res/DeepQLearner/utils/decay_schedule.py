@@ -17,7 +17,7 @@ if __name__ == "__main__":
 	import matplotlib.pyplot as plt
 	epsilon_initial = 1.0
 	epsilon_final = 0.01
-	MAX_NUM_EPISODES = 50
+	MAX_NUM_EPISODES = 100
 	STEPS_PER_EPISODE = 100
 	max_steps = 0.5 * MAX_NUM_EPISODES * STEPS_PER_EPISODE
 	linear_schedule = LinearDecaySchedule(initial_value = epsilon_initial,
