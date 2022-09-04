@@ -1,4 +1,7 @@
 #https://github.com/philtabor/Youtube-Code-Repository/tree/master/ReinforcementLearning/DeepQLearning
+#articles
+#https://lilianweng.github.io/lil-log/2018/02/19/a-long-peek-into-reinforcement-learning.html#key-concepts
+#https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html
 from builtins import print
 import torch
 from datetime import datetime
@@ -8,7 +11,7 @@ from argparse import ArgumentParser
 from collections import deque
 
 #doom
-from vizdoom import *
+import vizdoom as vzd
 import random
 from skimage import transform
 
@@ -34,7 +37,7 @@ def show_image(frame):
 
 
 def create_environment():
-    game = DoomGame()
+    game = vzd.DoomGame()
     # Load the correct configuration
     game.load_config("basic.cfg")
     # Load the correct scenario (in our case basic scenario)
@@ -185,8 +188,7 @@ if __name__ == '__main__':
             brain.storeTransition(state, action, reward, next_state)
             observation = next_state
         i+=1
-    print('')
-    print('Done initializing memory')
+    print('\nDone initializing memory')
 
     #Training
     if training:
@@ -214,6 +216,7 @@ if __name__ == '__main__':
             #frames.shape:(4, 84, 84)
 
             steps_taken = 0
+            print("[Steps]")
             while step < agent_params["max_steps"]:
 
                 action, explore_probability = brain.predict_action(frames)
@@ -225,8 +228,10 @@ if __name__ == '__main__':
                 steps_taken = step
                 episode_rewards.append(reward)
 
+                sys.stdout.write(f"\r{step}")
+
                 if done:
-                    print("[DONE]")
+                    print("\n[DONE]")
                     episode_rewards.append(total_reward)
 
                     if total_reward > brain.best_reward:
@@ -251,12 +256,13 @@ if __name__ == '__main__':
                 lastAction = action
 
             scores.append(total_reward)
-            print('Episode finished: {}, '.format(episode),
+
+            print('\nEpisode finished: {}, '.format(episode),
                   'iterations: {}, '.format(steps_taken),
                   'total reward: {}, '.format(total_reward),
                   'mean reward: {}, '.format(np.mean(episode_rewards)),
-                  'best reward: {}, '.format(brain.best_reward)
-                  # 'Training loss: {:.4f}'.format(brain.loss),
+                  'best reward: {}, '.format(brain.best_reward),
+                  #'Training loss: {:.4f}'.format(brain.loss),
                   #'explore probability: {:.4f}'.format(explore_probability)
                   )
             print("")

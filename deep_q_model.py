@@ -124,6 +124,7 @@ class Agent(object):
 
         memory = self.getMem(batch_size)
 
+        #Memory columns [state, action, reward, state_]
         Qpred = self.Q.forward(list(memory[:,0][:]))#.to(self.device)
         Qnext = self.Q_target.forward(list(memory[:,3][:]))#.to(self.device)
 
@@ -134,6 +135,10 @@ class Agent(object):
         rewards = T.Tensor(list(memory[:, 2])).to(self.device)
 
         #calculate Q target (td_target = Qtarget)
+        #td= Temporal difference
+        #TD usan el error o diferencia entre predicciones sucesivas (en lugar del error entre la predicción y la salida final o final del episodio)
+        # aprendiendo al existir cambios entre predicciones sucesivas.
+        #https://www.udemy.com/course/tensorflow2/learn/lecture/15692530#overview
         td_target = Qpred.clone()
         td_target[action_idx, maxA] = rewards + self.gamma*T.max(Qnext[1])
 

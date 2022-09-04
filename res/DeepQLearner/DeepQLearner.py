@@ -39,7 +39,7 @@ manager = ParamsManager(args.params_file)
 summary_filename_prefix = manager.get_agent_params()['summary_filename_prefix']
 summary_filename = summary_filename_prefix + args.env + datetime.now().strftime("%y-%m-%d-%H-%M")
 
-# Summary writer de TensorBoardX
+# Summary writer de TensorBoardX. Dashboard
 writer = SummaryWriter(summary_filename)
 manager.export_agent_params(summary_filename + "/" + "agent_params.json")
 manager.export_environment_params(summary_filename + "/" + "environment_params.json")
@@ -127,7 +127,7 @@ class DeepQLearner(object):
         if done:
             td_target = reward + 0.0
         else:
-            # formula
+            # formula diff temporal
             td_target = reward + self.gamma * torch.max(self.Q(next_obs))
 
         td_error = torch.nn.functional.mse_loss(self.Q(obs)[action], td_target)
