@@ -60,11 +60,14 @@ class Agent(object):
         self.action_shape = actionSpace
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
 
-        self.Q = DeepQNetwork(self.device).to(self.device)
+        #Q_target son los valores conocidos (del step anterior)
         self.Q_target = DeepQNetwork(self.device).to(self.device)
+        #Q son los valores actuales
+        self.Q = DeepQNetwork(self.device).to(self.device)
+        #funcion de perdida
         self.Q_optimizer = optim.Adam(self.Q.parameters(), lr=self.lr)
 
-        # epsilon greedy
+        # epsilon greedy: this policy helps as exploration(be able to detect others results by taking more Qs)
         self.policy = self.epsilon_greedy_Q
         self.epsilon_max = self.params['epsilon_max']
         self.epsilon_min = self.params['epsilon_min']
@@ -125,7 +128,9 @@ class Agent(object):
         memory = self.getMem(batch_size)
 
         #Memory columns [state, action, reward, state_]
+        #Q(t)
         Qpred = self.Q.forward(list(memory[:,0][:]))#.to(self.device)
+        #Q(t-1)
         Qnext = self.Q_target.forward(list(memory[:,3][:]))#.to(self.device)
 
         #index
@@ -142,11 +147,10 @@ class Agent(object):
         td_target = Qpred.clone()
         td_target[action_idx, maxA] = rewards + self.gamma*T.max(Qnext[1])
 
+        #calcular perdida (backpropagation= ajusta pesos de la RN)
         td_error = self.Q.loss(td_target, Qpred).to(self.device)
-
         self.Q_optimizer.zero_grad()
         td_error.backward()
-
         writer.add_scalar("DQL/td_error", td_error.mean(), self.step_num)
         self.Q_optimizer.step()
 
