@@ -5,7 +5,7 @@
 from builtins import print
 import torch
 from datetime import datetime
-from deep_q_model import Agent
+from agent import Agent
 import numpy as np
 from argparse import ArgumentParser
 from collections import deque
@@ -15,8 +15,8 @@ import vizdoom as vzd
 import random
 from skimage import transform
 
-from res.DeepQLearner.utils.params_manager import ParamsManager
-from res.dql_tf2.utils import plotLearning
+from utils.params_manager import ParamsManager
+from utils.utils import plotLearning
 
 # tensorboardX
 from tensorboardX import SummaryWriter
@@ -25,7 +25,6 @@ import warnings
 warnings.filterwarnings('ignore')
 import sys
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
 
 # contador global de ejecuciones
 global_step_num = 0
@@ -146,37 +145,58 @@ if __name__ == '__main__':
 
     game, possible_actions = create_environment()
 
-    training = True
+    params = manager.get_agent_params()
+    params["test"] = args.test
 
-    agent_params = manager.get_agent_params()
-    agent_params["test"] = args.test
-
-    brain = Agent(agent_params, maxMemorySize=agent_params["experience_memory_size"], writer= writer)
+    agent = Agent(params, maxMemorySize=params["experience_memory_size"], writer= writer)
 
     # Render the environment
     game.new_episode()
     i = 0
 
+    #Hyperparameters
+    ### MODEL HYPERPARAMETERS
+
+    ##Training hyperparameters
+    total_episodes = params["total_episodes"]
+    max_steps = params["max_steps"]
+    batch_size = params['batch_size']
+
+    # Exploration parameters for epsilon greedy strategy
+
+    # Q learning hyperparameters
+
+    ### MEMORY HYPERPARAMETERS
+
+    ### MODIFY THIS TO FALSE IF YOU JUST WANT TO SEE THE TRAINED AGENT
+    training = True
+
+    ## TURN THIS TO TRUE IF YOU WANT TO RENDER THE ENVIRONMENT
+    episode_render = False
+
+
     print("Filling memory: ")
 #    for i in range(pretrain_length):
-    while brain.memCntr < brain.memSize:
+    while agent.memCntr < agent.memSize:
         sys.stdout.write(f"\r{str(i)}")
         if i == 0:
             # First we need a state
-            state = game.get_state().screen_buffer
-            #state.shape (120, 160)
+            state = game.get_state().screen_buffer #state.shape (120, 160)
             state, stacked_frames = stack_frames(stacked_frames, state, True)
             #show_image(state)
 
+        # Random action
         action = random.choice(possible_actions)
+        #Get the rewards
         reward, done = env_step(action)
 
         if done:
+            # We finished the episode
             next_state = np.zeros(state.shape)
-            brain.storeTransition(state, action, reward, next_state)
+            agent.store_transition(state, action, reward, next_state)
 
+            # Start a new episode
             game.new_episode()
-
             state = game.get_state().screen_buffer
             state, stacked_frames = stack_frames(stacked_frames, state, True)
 
@@ -184,30 +204,32 @@ if __name__ == '__main__':
             # Get the next state
             next_state = game.get_state().screen_buffer
             next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
+            agent.store_transition(state, action, reward, next_state)
 
-            brain.storeTransition(state, action, reward, next_state)
-            observation = next_state
+            # Our state is now the next_state
+            state = next_state
         i+=1
     print('\nDone initializing memory')
 
     #Training
     if training:
+        # Initialize the decay rate (that will use to reduce epsilon)
+
         # Init the game
         game.init()
         episode_rewards = list()
         scores = []
-        numGames = agent_params["total_episodes"]
-        epsHistory = []
-        for episode in range(numGames):
+        eps_history = []
+        for episode in range(total_episodes):
             total_reward = 0.0
             done = False
             step = 0
-            epsilon = brain.epsilon_decay(brain.step_num)
-            epsHistory.append(epsilon)
+            epsilon = agent.epsilon_decay(agent.step_num)
+            eps_history.append(epsilon)
 
-            print('Starting episode: ',episode,', epsilon: %.4f' % epsilon + ' ')
+            print('Starting episode: ', episode, ', epsilon: %.4f' % epsilon + ' ')
 
-            #env reset
+            # Make a new episode and observe the first state
             game.new_episode()
             state = game.get_state().screen_buffer
             state, stacked_frames = stack_frames(stacked_frames, state, True)
@@ -217,14 +239,15 @@ if __name__ == '__main__':
 
             steps_taken = 0
             print("[Steps]")
-            while step < agent_params["max_steps"]:
+            while step < max_steps:
+                step += 1
 
-                action, explore_probability = brain.predict_action(frames)
+                # Predict the action to take and take it
+                action, explore_probability = agent.predict_action(frames)
                 # do the action
                 reward, done = env_step(possible_actions[action])
 
                 total_reward += reward
-                step += 1
                 steps_taken = step
                 episode_rewards.append(reward)
 
@@ -233,27 +256,26 @@ if __name__ == '__main__':
                 if done:
                     print("\n[DONE]")
                     episode_rewards.append(total_reward)
-
-                    if total_reward > brain.best_reward:
-                        brain.best_reward = total_reward
+                    if total_reward > agent.best_reward:
+                        agent.best_reward = total_reward
 
                     # the episode ends so no next state
                     next_state = np.zeros((84, 84), dtype=np.int)
                     next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
                     # Set step = max_steps to end the episode
-                    step = agent_params["max_steps"]
-                    brain.storeTransition(state, action, reward, next_state)
+                    step = max_steps
+                    agent.store_transition(state, action, reward, next_state)
 
                 else:
                     # Get the next state and Stack the frame of the next_state
                     next_state = game.get_state().screen_buffer
                     next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
-                    brain.storeTransition(state, action, reward, next_state)
+                    agent.store_transition(state, action, reward, next_state)
                     # st+1 is now our current state
                     state = next_state
 
-                brain.learn(agent_params['batch_size'], writer)
-                lastAction = action
+                ### LEARNING PART
+                agent.learn(batch_size, writer)
 
             scores.append(total_reward)
 
@@ -261,22 +283,20 @@ if __name__ == '__main__':
                   'iterations: {}, '.format(steps_taken),
                   'total reward: {}, '.format(total_reward),
                   'mean reward: {}, '.format(np.mean(episode_rewards)),
-                  'best reward: {}, '.format(brain.best_reward),
+                  'best reward: {}, '.format(agent.best_reward),
                   #'Training loss: {:.4f}'.format(brain.loss),
                   #'explore probability: {:.4f}'.format(explore_probability)
                   )
             print("")
             writer.add_scalar("main/ep_reward", total_reward, episode)
             writer.add_scalar("main/mean_ep_reward", np.mean(episode_rewards), episode)
-            writer.add_scalar("main/max_ep_reward", brain.best_reward, episode)
+            writer.add_scalar("main/max_ep_reward", agent.best_reward, episode)
 
         #Plotting
-        x = [i + 1 for i in range(numGames)]
-        fileName = str(numGames) + 'Games' + 'Gamma' + str(brain.gamma) + 'Alpha' + str(brain.lr) + 'Memory' + str(brain.memSize) + '.png'
-        plotLearning(x, scores, epsHistory, fileName)
+        x = [i + 1 for i in range(total_episodes)]
+        fileName = str(total_episodes) + 'Games' + 'Gamma' + str(agent.gamma) + 'Alpha' + str(agent.lr) + 'Memory' + str(agent.memSize) + '.png'
+        plotLearning(x, scores, eps_history, fileName)
 
         writer.close()
         #tensorboard --logdir=logs/
         #http://localhost:6006/
-
-
