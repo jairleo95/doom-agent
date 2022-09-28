@@ -34,7 +34,6 @@ def show_image(frame):
     imgplot = plt.imshow(frame)
     plt.show()
 
-
 def create_environment():
     game = vzd.DoomGame()
     # Load the correct configuration

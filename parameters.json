@@ -1,7 +1,7 @@
 {
     "agent" : {
         "total_episodes": 100,
-        "max_steps": 100,
+        "max_steps": 30,
         "experience_memory_size": 5000,
         "replay_start_size": 10000,
         "batch_size": 32,

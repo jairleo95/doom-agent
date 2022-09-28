@@ -108,14 +108,17 @@ class Agent(object):
         memory = self.getMem(batch_size)
 
         #Memory columns [state, action, reward, state_]
-        #Q(t)
-        Qpred = self.Q.forward(list(memory[:,0][:]))#.to(self.device)
-        #Q(t-1)
-        Qnext = self.Q_target.forward(list(memory[:,3][:]))#.to(self.device)
+        print("states before train:", memory[:,0][:].shape)
+        #states before train: (32,)
+        #torch.Size([32, 4, 84, 84])
+        #Q(t) q_eval=q_pred
+        q_eval = self.Q_target.forward(list(memory[:,0][:]))#.to(self.device)
+        #Q(t-1) q_next_state
+        q_next = self.Q.forward(list(memory[:,3][:]))#.to(self.device)
 
         #index
-        maxA = T.argmax(Qnext, dim=1).to(self.device)
-        action_idx = np.arange(batch_size)
+        max_actions = T.argmax(q_next, dim=1).to(self.device)
+        batch_index = np.arange(batch_size)
         #rewards
         rewards = T.Tensor(list(memory[:, 2])).to(self.device)
 
@@ -125,11 +128,11 @@ class Agent(object):
         # aprendiendo al existir cambios entre predicciones sucesivas.
         #https://www.udemy.com/course/tensorflow2/learn/lecture/15692530#overview
         #T.max(Qnext[1]) permite obtener el mejor Q para la accion actual (Qnext)
-        td_target = Qpred.clone()
-        td_target[action_idx, maxA] = rewards + self.gamma*T.max(Qnext[1])
+        td_target = q_eval.clone()
+        td_target[batch_index, max_actions] = rewards + self.gamma*T.max(q_next[1])
 
         #calcular perdida (backpropagation= ajusta pesos de la RN)
-        td_error = self.Q.loss(td_target, Qpred).to(self.device)
+        td_error = self.Q.loss(td_target, q_eval).to(self.device)
         self.Q_optimizer.zero_grad()
         td_error.backward()
         writer.add_scalar("DQL/td_error", td_error.mean(), self.step_num)

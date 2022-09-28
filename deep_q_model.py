@@ -28,8 +28,12 @@ class DeepQNetwork(nn.Module):
 
     def forward(self, observation):
         observation = T.Tensor(observation).to(self.device)
-        ##observation = observation.view(-1, 1, 84, 84)
+        # print("before observation.shape:", observation.shape)
+        #4 frames stacked
+        #before observation.shape: torch.Size([32, 4, 84, 84])
         observation = observation.view(-1, 4, 84, 84)
+        # print("observation.shape:",str(observation.shape))
+        #observation.shape: torch.Size([32, 4, 84, 84])
         observation = F.relu(self.conv1_bn(self.conv1(observation)))
         observation = F.relu(self.conv2_bn(self.conv2(observation)))
         observation = F.relu(self.conv3_bn(self.conv3(observation)))
@@ -37,5 +41,5 @@ class DeepQNetwork(nn.Module):
         observation = observation.view(-1, 3*3*128)
         observation = F.relu(self.flatten(observation))
         actions = self.fc2(observation)
-        #print("actions.shape:"+str(actions.shape))
+        #print("actions.shape:"+str(actions.shape))#ctions.shape:torch.Size([32, 3])
         return actions
