@@ -3,7 +3,7 @@ import torch.optim as optim
 import numpy as np
 import random
 from utils.linear_decay_schedule import LinearDecaySchedule
-from deep_q_model import DeepQNetwork
+from dqn.deep_q_model import DeepQNetwork
 
 class Agent(object):
     def __init__(self, params, maxMemorySize, actionSpace=[0,1,2], writer=None):

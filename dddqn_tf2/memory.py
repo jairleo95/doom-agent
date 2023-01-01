@@ -1,4 +1,5 @@
-
+import numpy as np
+from dddqn_tf2.sumtree import SumTree
 
 class Memory(object):  # stored as ( s, a, r, s_ ) in SumTree
     """

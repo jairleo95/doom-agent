@@ -5,7 +5,7 @@
 from builtins import print
 import torch
 from datetime import datetime
-from agent import Agent
+from dqn.agent import Agent
 import numpy as np
 from argparse import ArgumentParser
 from collections import deque

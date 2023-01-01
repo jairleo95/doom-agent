@@ -1,8 +1,6 @@
 import numpy as np
-import gym
-from simple_dqn_tf2 import Agent
+from dqn_tf2.simple_dqn_tf2 import Agent
 from utils.utils import plotLearning
-import tensorflow as tf
 import vizdoom as vzd
 from skimage import transform
 from collections import deque
