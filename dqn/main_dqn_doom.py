@@ -283,7 +283,7 @@ if __name__ == '__main__':
                   'total reward: {}, '.format(total_reward),
                   'mean reward: {}, '.format(np.mean(episode_rewards)),
                   'best reward: {}, '.format(agent.best_reward),
-                  #'Training loss: {:.4f}'.format(brain.loss),
+                  #'Training loss: {:.4f}'.format(agent.loss),
                   #'explore probability: {:.4f}'.format(explore_probability)
                   )
             print("")

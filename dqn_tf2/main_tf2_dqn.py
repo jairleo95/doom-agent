@@ -1,9 +1,9 @@
 import numpy as np
-from dqn_tf2.simple_dqn_tf2 import Agent
-from utils.utils import plotLearning
 import vizdoom as vzd
 from skimage import transform
 from collections import deque
+from dqn_tf2.simple_dqn_tf2 import Agent
+from utils.utils import plotLearning
 
 def preprocess_frame(frame):
     # Crop the screen (remove the roof because it contains no information)

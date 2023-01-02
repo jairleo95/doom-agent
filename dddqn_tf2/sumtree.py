@@ -1,3 +1,5 @@
+import numpy as np
+
 class SumTree(object):
     """
     This SumTree code is modified version of Morvan Zhou:
