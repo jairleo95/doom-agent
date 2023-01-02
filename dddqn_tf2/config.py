@@ -6,7 +6,7 @@ learning_rate = 0.00025  # Alpha (aka learning rate)
 
 
 ### TRAINING HYPERPARAMETERS
-total_episodes = 200  # number of games
+total_episodes = 50  # number of games
 max_steps = 100
 batch_size = 64
 
@@ -24,7 +24,7 @@ gamma = 0.95  # Discounting rate
 ### MEMORY HYPERPARAMETERS
 ## If you have GPU change to 1million
 pretrain_length = 3000  # Number of experiences stored in the Memory when initialized for the first time
-memory_size = 100000  # (100000) Number of experiences the Memory can keep
+memory_size = 10000  # (100000) Number of experiences the Memory can keep
 
 ### MODIFY THIS TO FALSE IF YOU JUST WANT TO SEE THE TRAINED AGENT
 training = True

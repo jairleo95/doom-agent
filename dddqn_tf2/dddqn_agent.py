@@ -1,7 +1,9 @@
 import os
+import random
+from collections import deque
 import tensorflow as tf
 from dddqn_tf2.dueling_dqn_network import DDDQN
-from dddqn_tf2.memory import ReplayBuffer
+from dddqn_tf2.memory import Memory
 import numpy as np
 
 class Agent(object):
@@ -11,7 +13,7 @@ class Agent(object):
                  n_actions,
                  epsilon,
                  batch_size,
-                 input_dims,
+                 state_size,
                  epsilon_dec=1e-3,
                  epsilon_end=0.01,
                  mem_size=1000000,
@@ -29,9 +31,12 @@ class Agent(object):
         self.epsilon_decay = epsilon_dec
 
         # Memory information
-        self.memory = ReplayBuffer(mem_size, input_dims)
+        self.MEMORY = Memory(mem_size)
+        self.memory = deque(maxlen=2000)
+        self.USE_PER = True
 
         # DQN
+        self.state_size = state_size
         self.q_net = DDDQN(n_actions)
         self.target_net = DDDQN(n_actions)
 
@@ -41,8 +46,12 @@ class Agent(object):
         self.target_net.compile(loss='mse', optimizer=opt)
 
 
-    def add_experience(self, state, action, reward, new_state, done):
-        self.memory.add_experience(state, action, reward, new_state, done)
+    def remember(self, state, action, reward, new_state, done):
+        experience = state, action, reward, new_state, done
+        if self.USE_PER:
+            self.MEMORY.store(experience)
+        else:
+            self.memory.append((experience))
 
     def act(self, state):
 
@@ -69,30 +78,55 @@ class Agent(object):
                 Sample a batch and use it to improve the DQN
         """
 
-        if self.memory.mem_cntr < self.batch_size:
-            return
+        # if self.memory.mem_cntr < self.batch_size:
+        #     return
 
         if self.trainstep % self.replace == 0:
             self.update_target_network()
             print("Target Model updated")
 
-        states, actions, rewards, next_states, dones = self.memory.sample_buffer(self.batch_size)
+        #states, actions, rewards, next_states, dones = self.memory.sample(self.batch_size)
+        if self.USE_PER:
+            tree_idx, minibatch = self.MEMORY.sample(self.batch_size)
+        else:
+            minibatch = random.sample(self.memory, min(len(self.memory), self.batch_size))
+
+        print(self.state_size)
+        state = np.zeros((self.batch_size, 84,84, 4))
+        next_state = np.zeros((self.batch_size, 84,84, 4))
+        action, reward, done = [], [], []
+
+        for i in range(self.batch_size):
+            state[i] = minibatch[i][0]
+            action.append(minibatch[i][1])
+            reward.append(minibatch[i][2])
+            next_state[i] = minibatch[i][3]
+            done.append(minibatch[i][4])
+
+        print(state.shape)
 
         # Main DQN estimates best action in new states
-        target = self.q_net.predict(states)
+        target = self.q_net.predict(state)
 
         # Target DQN estimates q-vals for new states
-        next_state_val = self.target_net.predict(next_states)
+        next_state_val = self.target_net.predict(next_state)
 
-        max_action = np.argmax(self.q_net.predict(next_states), axis=1)
+        max_action = np.argmax(self.q_net.predict(next_state), axis=1)
         batch_index = np.arange(self.batch_size, dtype=np.int32)
 
         # Calculate targets (bellman equation)
         q_target = np.copy(target)
-        q_target[batch_index, actions] = rewards + self.gamma * next_state_val[batch_index, max_action] * dones
+        q_target[batch_index, action] = reward + self.gamma * next_state_val[batch_index, max_action] * done
 
-        self.q_net.train_on_batch(states, q_target)
+        self.q_net.train_on_batch(state, q_target)
         self.update_epsilon()
+
+        if self.USE_PER:
+            indices = np.arange(self.batch_size, dtype=np.int32)
+            absolute_errors = np.abs(q_target[indices, np.array(action)] - target[indices, np.array(action)])
+            # Update priority
+            self.MEMORY.batch_update(tree_idx, absolute_errors)
+
         self.trainstep += 1
 
     def save_model(self, folder_name, **kwargs):

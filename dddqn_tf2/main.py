@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     agent = Agent(gamma=gamma, lr=learning_rate,
                   epsilon=explore_start, epsilon_end=explore_stop, epsilon_dec=decay_rate,
-                  n_actions=num_actions, input_dims=state_size, mem_size=memory_size,
+                  n_actions=num_actions, state_size=state_size, mem_size=memory_size,
                   batch_size=batch_size, replace=max_tau)
     scores = []
     eps_history = []
@@ -47,14 +47,14 @@ if __name__ == '__main__':
         if done:
             # We finished the episode
             next_state = np.zeros(state.shape)
-            agent.add_experience(state, action, reward, next_state, done)
+            agent.remember(state, action, reward, next_state, done)
             # Start a new episode
             state = env.reset()
 
         else:
             next_state = env.game.get_state().screen_buffer
             next_state = env.stack_frames(env.stacked_frames, next_state, False)
-            agent.add_experience(state, action, reward, next_state, done)
+            agent.remember(state, action, reward, next_state, done)
             # Our state is now the next_state
             state = next_state
         i += 1
@@ -86,7 +86,7 @@ if training:
                 episode_rewards.append(reward)
                 sys.stdout.write(f"\r{step}")
                 
-                agent.add_experience(state, action, reward, next_state, done)
+                agent.remember(state, action, reward, next_state, done)
                 state = next_state
                 agent.learn()
 
