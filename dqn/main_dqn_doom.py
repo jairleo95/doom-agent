@@ -226,7 +226,7 @@ if __name__ == '__main__':
             epsilon = agent.epsilon_decay(agent.step_num)
             eps_history.append(epsilon)
 
-            print('Starting episode: ', episode, ', epsilon: %.4f' % epsilon + ' ')
+            print('Starting episode:', episode, ', epsilon: %.4f' % epsilon + ' ')
 
             # Make a new episode and observe the first state
             game.new_episode()
