@@ -28,15 +28,16 @@ class DoomEnv():
 
     def step(self, action):
 
-        next_state = self.stack_frames(self.stacked_frames, self.game.get_state().screen_buffer, False)
+        # next_state = self.stack_frames(self.stacked_frames, self.game.get_state().screen_buffer, False)
         reward = self.game.make_action(self.possible_actions[action])
         done = self.game.is_episode_finished()
-        info =""
-        return next_state, reward, done, info
+        # info =""
+        # return next_state, reward, done, info
+        return reward, done
 
     def reset(self):
         self.game.new_episode()
-        return self.stack_frames(self.stacked_frames, self.game.get_state().screen_buffer, False)
+        # return self.stack_frames(self.stacked_frames, self.game.get_state().screen_buffer, False)
 
     def preprocess_frame(self, frame):
         # Crop the screen (remove the roof because it contains no information)

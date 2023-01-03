@@ -22,6 +22,7 @@ writer = SummaryWriter(summary_filename)
 if __name__ == '__main__':
 
     # Create an environment of doom
+    REM_STEP = 4
     env = DoomEnv(stack_size=4, img_shape=(84, 84))
     num_actions, action_shape = env.create_env()
 
@@ -37,19 +38,25 @@ if __name__ == '__main__':
         sys.stdout.write(f"\r{str((i/pretrain_length)*100)} %")
         if i == 0:
             # First we need a state
-            state = env.reset()
+            state = env.stack_frames(env.stacked_frames, env.game.get_state().screen_buffer, True)
 
         # Random action
         action = random.choice(action_shape)
         # Get the rewards
-        nex_state, reward, done, _ = env.step(action)
+        reward, done = env.step(action)
 
         if done:
             # We finished the episode
             next_state = np.zeros(state.shape)
             agent.remember(state, action, reward, next_state, done)
             # Start a new episode
-            state = env.reset()
+            env.game.new_episode()
+
+            # First we need a state
+            state = env.game.get_state().screen_buffer
+
+            # Stack the frames
+            state = env.stack_frames(env.stacked_frames, state, True)
 
         else:
             next_state = env.game.get_state().screen_buffer
@@ -57,63 +64,70 @@ if __name__ == '__main__':
             agent.remember(state, action, reward, next_state, done)
             # Our state is now the next_state
             state = next_state
-        i += 1
     print('\nDone initializing memory')
 
 if training:
 
     episode_rewards = list()
+    decay_step = 0
+
+    # Init the game
+    env.game.init()
+
+    # Update the parameters of our TargetNetwork with DQN_weights
+
     for episode in range(total_episodes):
-        total_reward = 0.0
         done = False
-        score = 0
         step = 0
+
+        # Initialize the rewards of the episode
+        episode_rewards = []
 
         print('Starting episode: ', episode, ', epsilon: %.4f' % agent.epsilon + ' ')
         # Start a new episode
-        state = env.reset()
-        print("[Steps]")
-        steps_taken = 0
+        env.game.new_episode()
+        state = env.game.get_state().screen_buffer
+
+        # Remember that stack frame function also call our preprocess function.
+        state = env.stack_frames(env.stacked_frames, state, True)
+
         while step < max_steps:
             step += 1
-            if not done:
-                # env.render()
-                action = agent.act(state)
-                next_state, reward, done, _ = env.step(action)
-                score += reward
-                steps_taken = step
+            decay_step += 1
 
-                episode_rewards.append(reward)
-                sys.stdout.write(f"\r{step}")
-                
+            print('state.shae', state.shape)
+            action, explore_probability = agent.act(state, decay_step)
+
+            # Do the action
+            reward, done = env.step(action)
+
+            # Add the reward to total reward
+            episode_rewards.append(reward)
+
+            if done:
+                # the episode ends so no next state
+                next_state = env.stack_frames(env.stacked_frames, np.zeros(env.img_shape, dtype=np.int), False)
+                # every step update target model
+                # agent.update_target_model()
+                step = max_steps
+
+                # Get the total reward of the episode
+                total_reward = np.sum(episode_rewards)
+                print('Episode: {}/{}, Total reward: {}, e: {:.2}, average: {}'.format(episode, total_episodes, total_reward,
+                                                                                explore_probability, 0))
                 agent.remember(state, action, reward, next_state, done)
+                # if i == env._max_episode_steps:
+                #     print("Saving trained model to", "DQN")
+                #     # self.save(self.Model_name)
+                #     break
+            else:
+                next_state = env.stack_frames(env.stacked_frames, env.game.get_state().screen_buffer, False)
+
+                agent.remember(state, action, reward, next_state, done)
+
                 state = next_state
-                agent.learn()
-
-            # total_reward += reward
-        print("\n[DONE]")
-
-        print('Steps taken:', step)
-        step = max_steps
-        episode_rewards.append(score)
-        eps_history.append(agent.epsilon)
-        scores.append(score)
-
+            agent.learn()
     env.game.close()
-    avg_score = np.mean(scores[-100:])
-    print('Episode finished:', episode, 'score %.2f' % score,
-          'iterations: {}'.format(steps_taken),
-          'average_score %.2f' % avg_score,
-          'epsilon %.2f' % agent.epsilon)
-
-    # writer.add_scalar("main/ep_reward", score, episode)
-    # writer.add_scalar("main/mean_ep_reward", np.mean(episode_rewards), episode)
-    # writer.add_scalar("main/max_ep_reward", agent.best_reward, episode)
-
-    # Save model every 5 episodes
-    if episode % 5 == 0:
-        agent.save_model("model")
-        print("Models saved")
 
     filename = 'results/'+str(total_episodes) + 'Games' + 'Gamma' + str(agent.gamma) + 'Alpha' + str(learning_rate) + 'Memory' + str(
         memory_size) + '_vizdoom_dddqn__tf2.png'
