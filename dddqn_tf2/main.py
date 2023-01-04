@@ -1,3 +1,6 @@
+#https://github.com/jairleo95/Reinforcement_Learning_by_pythonlessons/blob/c9717f523fb9bd4bb8ccb5b34bd6ee6c76ea21b6/05_CartPole-reinforcement-learning_PER_D3QN/Cartpole_PER_D3QN_TF2.py#L195
+#https://github.com/simoninithomas/Deep_reinforcement_learning_Course/blob/master/Dueling%20Double%20DQN%20with%20PER%20and%20fixed-q%20targets/Dueling%20Deep%20Q%20Learning%20with%20Doom%20(%2B%20double%20DQNs%20and%20Prioritized%20Experience%20Replay).ipynb
+
 import os
 
 import sys
@@ -108,13 +111,19 @@ if training:
                 # the episode ends so no next state
                 next_state = env.stack_frames(env.stacked_frames, np.zeros(env.img_shape, dtype=np.int), False)
                 # every step update target model
-                # agent.update_target_model()
+                agent.update_target_model()
+
                 step = max_steps
 
                 # Get the total reward of the episode
                 total_reward = np.sum(episode_rewards)
+
+                eps_history.append(agent.epsilon)
+                scores.append(total_reward)
+                # every episode, plot the result
+                average = agent.PlotModel(total_reward, episode)
                 print('Episode: {}/{}, Total reward: {}, e: {:.2}, average: {}'.format(episode, total_episodes, total_reward,
-                                                                                explore_probability, 0))
+                                                                                explore_probability, average))
                 agent.remember(state, action, reward, next_state, done)
                 # if i == env._max_episode_steps:
                 #     print("Saving trained model to", "DQN")

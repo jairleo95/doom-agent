@@ -1,5 +1,6 @@
 import os
 import random
+import pylab
 from collections import deque
 import tensorflow as tf
 from dddqn_tf2.dueling_dqn_network import DQNModel
@@ -19,6 +20,7 @@ class Agent(object):
                  mem_size=1000000,
                  replace=100):
 
+        self.env_name = "VizDoom"
         self.action_size = n_actions
         self.gamma = gamma
         self.replace = replace
@@ -42,6 +44,8 @@ class Agent(object):
         self.epsilon_greedy = False  # use epsilon greedy strategy
         self.USE_PER = False  # use priority experienced replay
         self.TAU = 0.1  # target network soft update hyperparameter
+
+        self.scores, self.episodes, self.average = [], [], []
 
         # DQN
         self.state_size = state_size
@@ -182,3 +186,27 @@ class Agent(object):
         # Load replay buffer
         # if load_replay_buffer:
         #     self.replay_buffer.load(folder_name + '/replay-buffer')
+    def PlotModel(self, score, episode):
+        self.scores.append(score)
+        self.episodes.append(episode)
+        self.average.append(sum(self.scores[-50:]) / len(self.scores[-50:]))
+        pylab.plot(self.episodes, self.average, 'r')
+        pylab.plot(self.episodes, self.scores, 'b')
+        pylab.ylabel('Score', fontsize=18)
+        pylab.xlabel('Steps', fontsize=18)
+        dqn = 'DQN_'
+        softupdate = ''
+        dueling = ''
+        greedy = ''
+        PER = ''
+        if self.ddqn: dqn = 'DDQN_'
+        if self.Soft_Update: softupdate = '_soft'
+        if self.dueling: dueling = '_Dueling'
+        if self.epsilon_greedy: greedy = '_Greedy'
+        if self.USE_PER: PER = '_PER'
+        try:
+            pylab.savefig("results/"+dqn + self.env_name + softupdate + dueling + greedy + PER + ".png")
+        except OSError:
+            pass
+
+        return str(self.average[-1])[:5]
