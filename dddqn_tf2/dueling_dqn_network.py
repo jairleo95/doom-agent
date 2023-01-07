@@ -34,7 +34,7 @@ def DQNModel(input_shape, action_space, dueling):
 
       X = Add()([state_value, action_advantage])
     else:
-      # Output Layer with # of actions: 2 nodes (left, right)
+      # Output Layer with # of actions: n nodes (left, right, ...)
       X = Dense(action_space, activation="linear", kernel_initializer='he_uniform')(X)
 
     model = Model(inputs=X_input, outputs=X)

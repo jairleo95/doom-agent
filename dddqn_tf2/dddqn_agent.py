@@ -5,6 +5,7 @@ from collections import deque
 import tensorflow as tf
 from dddqn_tf2.dueling_dqn_network import DQNModel
 from dddqn_tf2.memory import Memory
+from utils.utils import plotLearning
 import numpy as np
 
 class Agent(object):
@@ -16,14 +17,18 @@ class Agent(object):
                  batch_size,
                  state_size,
                  epsilon_dec,
-                 epsilon_end=0.01,
-                 mem_size=1000000,
-                 replace=100):
-
+                 epsilon_end,
+                 mem_size,
+                 total_episodes):
+        #Environment and parameters
         self.env_name = "VizDoom"
         self.action_size = n_actions
+        self.max_average = 0
+        self.best_reward = 0
+        self.results_filename = 'results/' + str(total_episodes) + 'Games' + 'Gamma' + str(gamma) + 'Alpha' + str(
+            lr) + 'Memory' + str(mem_size) + '_vizdoom_dddqn__tf2.png'
+
         self.gamma = gamma
-        self.replace = replace
         self.trainstep = 0
 
         self.batch_size = batch_size
@@ -166,12 +171,12 @@ class Agent(object):
         if not os.path.isdir(folder_name):
             os.makedirs(folder_name)
 
-            # Save DQN and target DQN
-            self.q_net.save(folder_name + "/model.h5")
-            self.target_net.save(folder_name + "/target_model.h5")
+        # Save DQN and target DQN
+        self.model.save(folder_name + "/model.h5")
+        self.target_model.save(folder_name + "/target_model.h5")
 
-            # Save replay buffer
-            # self.memory.save(folder_name + '/replay-buffer')
+        # Save replay buffer
+        # self.memory.save(folder_name + '/replay-buffer')
 
     def load_model(self, folder_name, load_replay_buffer=True):
 
@@ -179,8 +184,8 @@ class Agent(object):
             raise ValueError(f'{folder_name} is not a valid directory')
 
         # Load DQNs
-        self.q_net = tf.keras.models.load_model(folder_name + "/model.h5")
-        self.target_net = tf.keras.models.load_model(folder_name + "/model.h5")
+        self.model = tf.keras.models.load_model(folder_name + "/model.h5")
+        self.target_model = tf.keras.models.load_model(folder_name + "/model.h5")
         # self.optimizer = self.DQN.optimizer
 
         # Load replay buffer
@@ -209,4 +214,9 @@ class Agent(object):
         except OSError:
             pass
 
-        return str(self.average[-1])[:5]
+        return self.average[-1]
+
+    def plotLearning(self, total_episodes, scores, eps_history):
+
+        x = [i for i in range(total_episodes+1)]
+        plotLearning(x, scores, eps_history, self.results_filename)

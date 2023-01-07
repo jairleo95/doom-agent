@@ -6,12 +6,12 @@ learning_rate = 0.00025  # Alpha (aka learning rate)
 
 
 ### TRAINING HYPERPARAMETERS
-total_episodes = 100  # number of games
-max_steps = 100
+total_episodes = 200  # number of games
+max_steps = 80
 batch_size = 64
 
 # FIXED Q TARGETS HYPERPARAMETERS
-max_tau = 500  # (10000) Tau is the C step where we update our target network
+max_tau = 5000  # (10000) Tau is the C step where we update our target network
 
 # EXPLORATION HYPERPARAMETERS for epsilon greedy strategy
 explore_start = 1.0  # exploration probability at start

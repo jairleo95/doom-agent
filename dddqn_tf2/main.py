@@ -7,6 +7,9 @@ import sys
 import random
 import numpy as np
 from datetime import datetime
+
+from vizdoom.vizdoom import DoomGame
+
 from utils.utils import plotLearning
 # tensorboardX
 from tensorboardX import SummaryWriter
@@ -32,9 +35,8 @@ if __name__ == '__main__':
     agent = Agent(gamma=gamma, lr=learning_rate,
                   epsilon=explore_start, epsilon_end=explore_stop, epsilon_dec=decay_rate,
                   n_actions=num_actions, state_size=state_size, mem_size=memory_size,
-                  batch_size=batch_size, replace=max_tau)
-    scores = []
-    eps_history = []
+                  batch_size=batch_size, total_episodes=total_episodes)
+
 
     print("Filling memory: ", pretrain_length)
     for i in range(pretrain_length):
@@ -71,20 +73,24 @@ if __name__ == '__main__':
 
 if training:
 
-    episode_rewards = list()
     decay_step = 0
 
     # Init the game
     env.game.init()
 
+    scores = []
+    eps_history = []
+
     # Update the parameters of our TargetNetwork with DQN_weights
 
     for episode in range(total_episodes):
+        total_reward = 0.0
         done = False
         step = 0
 
         # Initialize the rewards of the episode
-        episode_rewards = []
+
+        eps_history.append(agent.epsilon)
 
         print('Starting episode: ', episode, ', epsilon: %.4f' % agent.epsilon + ' ')
         # Start a new episode
@@ -98,16 +104,17 @@ if training:
             step += 1
             decay_step += 1
 
-            print('state.shae', state.shape)
             action, explore_probability = agent.act(state, decay_step)
 
             # Do the action
             reward, done = env.step(action)
 
             # Add the reward to total reward
-            episode_rewards.append(reward)
+            total_reward += reward
 
             if done:
+                if total_reward > agent.best_reward:
+                    agent.best_reward = total_reward
                 # the episode ends so no next state
                 next_state = env.stack_frames(env.stacked_frames, np.zeros(env.img_shape, dtype=np.int), False)
                 # every step update target model
@@ -116,19 +123,21 @@ if training:
                 step = max_steps
 
                 # Get the total reward of the episode
-                total_reward = np.sum(episode_rewards)
+                total_reward = np.sum(total_reward)
 
-                eps_history.append(agent.epsilon)
-                scores.append(total_reward)
                 # every episode, plot the result
                 average = agent.PlotModel(total_reward, episode)
-                print('Episode: {}/{}, Total reward: {}, e: {:.2}, average: {}'.format(episode, total_episodes, total_reward,
-                                                                                explore_probability, average))
+
+                if average >= agent.max_average:
+                    agent.max_average = average
+                    # agent.save_model("/Models")
+                    SAVING = "SAVING"
+                else:
+                    SAVING = ""
+                # print('Episode: {}/{}, Total reward: {}, e: {:.2}, average: {} {}'.format(episode, total_episodes, total_reward,
+                #                                                                 explore_probability, average, SAVING))
                 agent.remember(state, action, reward, next_state, done)
-                # if i == env._max_episode_steps:
-                #     print("Saving trained model to", "DQN")
-                #     # self.save(self.Model_name)
-                #     break
+
             else:
                 next_state = env.stack_frames(env.stacked_frames, env.game.get_state().screen_buffer, False)
 
@@ -136,9 +145,62 @@ if training:
 
                 state = next_state
             agent.learn()
+
+        scores.append(total_reward)
+        print('Episode: {}/{}, Total reward: {}, e: {:.2}, average: {} {}'.format(episode, total_episodes, total_reward,
+                                                                                  agent.epsilon, 0, "SAVING"))
+        agent.plotLearning(episode, scores, eps_history)
+
+        #Save model every 5 episodes
+        if episode % 5 == 0:
+            agent.save_model("Models")
+            print("Model Saved")
+
     env.game.close()
 
-    filename = 'results/'+str(total_episodes) + 'Games' + 'Gamma' + str(agent.gamma) + 'Alpha' + str(learning_rate) + 'Memory' + str(
-        memory_size) + '_vizdoom_dddqn__tf2.png'
-    x = [i + 1 for i in range(total_episodes)]
-    plotLearning(x, scores, eps_history, filename)
+agent.load_model("Models")
+
+game = DoomGame()
+
+# Load the correct configuration (TESTING)
+game.load_config("basic.cfg")
+
+# Load the correct scenario (in our case deadly_corridor scenario)
+game.set_doom_scenario_path("basic.wad")
+
+game.init()
+
+game.init()
+
+for i in range(100):
+
+    game.new_episode()
+    state = game.get_state().screen_buffer
+    state = env.stack_frames(env.stacked_frames, state, True)
+    state = np.reshape(state, [1, *agent.state_size])
+
+    while not game.is_episode_finished():
+        # Estimate the Qs values state
+        # Qs = sess.run(DQNetwork.output, feed_dict={DQNetwork.inputs_: state.reshape((1, *state.shape))})
+        Qs = agent.model.predict(state)
+
+        # Take the biggest Q value (= the best action)
+        choice = np.argmax(Qs)
+        action = env.possible_actions[int(choice)]
+
+        game.make_action(action)
+        done = game.is_episode_finished()
+
+        if done:
+            break
+
+        else:
+            next_state = game.get_state().screen_buffer
+            next_state = env.stack_frames(env.stacked_frames, next_state, False)
+            next_state = np.reshape(next_state, [1, *agent.state_size])
+            state = next_state
+
+    score = game.get_total_reward()
+    print("Score: ", score)
+
+game.close()
