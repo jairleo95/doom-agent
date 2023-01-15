@@ -19,7 +19,7 @@ class Agent(object):
                  epsilon_dec,
                  epsilon_end,
                  mem_size,
-                 total_episodes):
+                 total_episodes, writer):
         #Environment and parameters
         self.env_name = "VizDoom"
         self.action_size = n_actions
@@ -59,6 +59,8 @@ class Agent(object):
         self.model = DQNModel(input_shape=self.state_size, action_space=self.action_size, dueling=self.dueling)
         self.target_model = DQNModel(input_shape=self.state_size, action_space=self.action_size, dueling=self.dueling)
 
+        self.writer = writer
+
     def update_target_model(self):
         if not self.Soft_Update and self.ddqn:
             self.target_model.set_weights(self.model.get_weights())
@@ -80,7 +82,8 @@ class Agent(object):
         else:
             self.memory.append((experience))
 
-    def act(self, state, decay_step):
+    def act(self, state, decay_step, episode):
+        self.writer.add_scalar("DQL/epsilon", self.epsilon, episode)
 
         # EPSILON GREEDY STRATEGY
         if self.epsilon_greedy:
@@ -175,9 +178,6 @@ class Agent(object):
         self.model.save(folder_name + "/model.h5")
         self.target_model.save(folder_name + "/target_model.h5")
 
-        # Save replay buffer
-        # self.memory.save(folder_name + '/replay-buffer')
-
     def load_model(self, folder_name, load_replay_buffer=True):
 
         if not os.path.isdir(folder_name):
@@ -186,11 +186,9 @@ class Agent(object):
         # Load DQNs
         self.model = tf.keras.models.load_model(folder_name + "/model.h5")
         self.target_model = tf.keras.models.load_model(folder_name + "/model.h5")
-        # self.optimizer = self.DQN.optimizer
 
         # Load replay buffer
-        # if load_replay_buffer:
-        #     self.replay_buffer.load(folder_name + '/replay-buffer')
+
     def PlotModel(self, score, episode):
         self.scores.append(score)
         self.episodes.append(episode)

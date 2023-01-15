@@ -35,7 +35,7 @@ if __name__ == '__main__':
     agent = Agent(gamma=gamma, lr=learning_rate,
                   epsilon=explore_start, epsilon_end=explore_stop, epsilon_dec=decay_rate,
                   n_actions=num_actions, state_size=state_size, mem_size=memory_size,
-                  batch_size=batch_size, total_episodes=total_episodes)
+                  batch_size=batch_size, total_episodes=total_episodes, writer= writer)
 
 
     print("Filling memory: ", pretrain_length)
@@ -84,6 +84,7 @@ if training:
     # Update the parameters of our TargetNetwork with DQN_weights
 
     for episode in range(total_episodes):
+        eps_reward = []
         total_reward = 0.0
         done = False
         step = 0
@@ -104,13 +105,14 @@ if training:
             step += 1
             decay_step += 1
 
-            action, explore_probability = agent.act(state, decay_step)
+            action, explore_probability = agent.act(state, decay_step, episode)
 
             # Do the action
             reward, done = env.step(action)
 
             # Add the reward to total reward
             total_reward += reward
+            eps_reward.append(reward)
 
             if done:
                 if total_reward > agent.best_reward:
@@ -128,12 +130,6 @@ if training:
                 # every episode, plot the result
                 average = agent.PlotModel(total_reward, episode)
 
-                if average >= agent.max_average:
-                    agent.max_average = average
-                    # agent.save_model("/Models")
-                    SAVING = "SAVING"
-                else:
-                    SAVING = ""
                 # print('Episode: {}/{}, Total reward: {}, e: {:.2}, average: {} {}'.format(episode, total_episodes, total_reward,
                 #                                                                 explore_probability, average, SAVING))
                 agent.remember(state, action, reward, next_state, done)
@@ -148,8 +144,11 @@ if training:
 
         scores.append(total_reward)
         print('Episode: {}/{}, Total reward: {}, e: {:.2}, average: {} {}'.format(episode, total_episodes, total_reward,
-                                                                                  agent.epsilon, 0, "SAVING"))
+                                                                                  agent.epsilon, eps_reward, "SAVING"))
         agent.plotLearning(episode, scores, eps_history)
+        writer.add_scalar("main/ep_reward", total_reward, episode)
+        writer.add_scalar("main/mean_ep_reward", np.mean(eps_reward), episode)
+        writer.add_scalar("main/max_ep_reward", agent.best_reward, episode)
 
         #Save model every 5 episodes
         if episode % 5 == 0:
@@ -157,6 +156,9 @@ if training:
             print("Model Saved")
 
     env.game.close()
+    writer.close()
+    # tensorboard --logdir=logs/
+    # http://localhost:6006/
 
 agent.load_model("Models")
 
@@ -170,7 +172,6 @@ game.set_doom_scenario_path("basic.wad")
 
 game.init()
 
-game.init()
 
 for i in range(100):
 
