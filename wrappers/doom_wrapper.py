@@ -60,16 +60,11 @@ class DoomEnv():
 
     def preprocess_frame(self, frame):
         # Crop the screen (remove the roof because it contains no information)
-
-        print("frame.shape: ", frame.shape)
-        # cropped_frame = frame[30:-10, 30:-30]
+        print("preprocess_frame.frame.shape: ", frame.shape)
         #crop parameters
-        # crop_args = [15, -5, 20, -20]
         args = self.crop_args
         cropped_frame = frame[args[0]:args[1], args[2]:args[3]]
-        print("cropped_frame.shape: ", cropped_frame.shape)
-        # self.imshow(np.rollaxis(frame, 0, 3))
-        # np.rollaxis(frame, 0, 3)
+        print("preprocess_frame.cropped_frame.shape: ", cropped_frame.shape)
         # Normalize Pixel Values
         normalized_frame = cropped_frame / 255.0
         # Resize

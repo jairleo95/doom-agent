@@ -1,87 +1,52 @@
-# Tutorial by www.pylessons.com
-# Tutorial written for - Tensorflow 2.3.1
-
-import os
-
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-import random
-import gym
 import pylab
-import numpy as np
-from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.layers import Input, Dense, Lambda, Add, Conv2D, Flatten
-from tensorflow.keras.optimizers import Adam, RMSprop
-from tensorflow.keras import backend as K
 import cv2
-
-
-def OurModel(input_shape, action_space, lr):
-    X_input = Input(input_shape)
-
-    # X = Conv2D(32, 8, strides=(4, 4),padding="valid", activation="elu", data_format="channels_first", input_shape=input_shape)(X_input)
-    # X = Conv2D(64, 4, strides=(2, 2),padding="valid", activation="elu", data_format="channels_first")(X)
-    # X = Conv2D(64, 3, strides=(1, 1),padding="valid", activation="elu", data_format="channels_first")(X)
-    X = Flatten(input_shape=input_shape)(X_input)
-
-    X = Dense(512, activation="elu", kernel_initializer='he_uniform')(X)
-    # X = Dense(256, activation="elu", kernel_initializer='he_uniform')(X)
-    # X = Dense(64, activation="elu", kernel_initializer='he_uniform')(X)
-
-    action = Dense(action_space, activation="softmax", kernel_initializer='he_uniform')(X)
-    value = Dense(1, kernel_initializer='he_uniform')(X)
-
-    Actor = Model(inputs=X_input, outputs=action)
-    Actor.compile(loss='categorical_crossentropy', optimizer=RMSprop(lr=lr))
-
-    Critic = Model(inputs=X_input, outputs=value)
-    Critic.compile(loss='mse', optimizer=RMSprop(lr=lr))
-
-    return Actor, Critic
-
+import numpy as np
+from a2c.networks import A2CModel
+import os
+from tensorflow.keras.models import load_model
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 class A2CAgent:
     # Actor-Critic Main Optimization Algorithm
-    def __init__(self, env_name):
+    def __init__(self, env_name, env, state_size, num_actions):
         # Initialization
         # Environment and PPO parameters
         self.env_name = env_name
-        self.env = gym.make(env_name)
+        self.env = env
 
-        self.action_size = self.env.action_space.n
-        self.EPISODES, self.max_average = 10000, -21.0  # specific for pong
+        self.action_size = num_actions
+        self.EPISODES, self.max_average = 1000, 0.0  # specific for pong
         self.lr = 0.000025
-
-        self.ROWS = 80
-        self.COLS = 80
-        self.REM_STEP = 4
 
         # Instantiate games and plot memory
         self.states, self.actions, self.rewards = [], [], []
         self.scores, self.episodes, self.average = [], [], []
 
         self.Save_Path = 'Models'
-        self.state_size = (self.REM_STEP, self.ROWS, self.COLS)
-        self.image_memory = np.zeros(self.state_size)
+        self.state_size = state_size
 
         if not os.path.exists(self.Save_Path): os.makedirs(self.Save_Path)
         self.path = '{}_A2C_{}'.format(self.env_name, self.lr)
         self.Model_name = os.path.join(self.Save_Path, self.path)
 
         # Create Actor-Critic network model
-        self.Actor, self.Critic = OurModel(input_shape=self.state_size, action_space=self.action_size, lr=self.lr)
+        self.Actor, self.Critic = A2CModel(input_shape=self.state_size, action_space=self.action_size, lr=self.lr)
 
     def remember(self, state, action, reward):
         # store episode actions to memory
+        state = np.expand_dims(state, axis=0)
         self.states.append(state)
         action_onehot = np.zeros([self.action_size])
         action_onehot[action] = 1
         self.actions.append(action_onehot)
         self.rewards.append(reward)
 
-    # using the output of policy network, pick action stochastically (Stochastic Policy)
     def act(self, state):
         # Use the network to predict the next action to take, using the model
-        print("act.state.shape:", state.shape)
+        print('act.state.shape', state.shape)
+        state = np.expand_dims(state, axis=0)
+        print('act.state.shape.expand_dims', state.shape)
+        #act.state.shape.expand_dims (1, 4, 64, 64)
         prediction = self.Actor.predict(state)[0]
         action = np.random.choice(self.action_size, p=prediction)
         return action
@@ -93,6 +58,7 @@ class A2CAgent:
         gamma = 0.99  # discount rate
         running_add = 0
         discounted_r = np.zeros_like(reward)
+        print("discount_rewards.reward.length", len(reward))
         for i in reversed(range(0, len(reward))):
             if reward[i] != 0:  # reset the sum, since this was a game boundary (pong specific!)
                 running_add = 0
@@ -103,7 +69,8 @@ class A2CAgent:
         discounted_r /= np.std(discounted_r)  # divide by standard deviation
         return discounted_r
 
-    def replay(self):
+    def learn(self):
+
         # reshape memory to appropriate shape for training
         states = np.vstack(self.states)
         actions = np.vstack(self.actions)
@@ -137,7 +104,8 @@ class A2CAgent:
         self.scores.append(score)
         self.episodes.append(episode)
         self.average.append(sum(self.scores[-50:]) / len(self.scores[-50:]))
-        if str(episode)[-2:] == "00":  # much faster than episode % 100
+        # if str(episode)[-2:] == "00":  # much faster than episode % 100
+        if episode % 5:
             pylab.plot(self.episodes, self.scores, 'b')
             pylab.plot(self.episodes, self.average, 'r')
             pylab.ylabel('Score', fontsize=18)
@@ -155,60 +123,20 @@ class A2CAgent:
             cv2.destroyAllWindows()
             return
 
-    def GetImage(self, frame):
-        # croping frame to 80x80 size
-        frame_cropped = frame[35:195:2, ::2, :]
-        if frame_cropped.shape[0] != self.COLS or frame_cropped.shape[1] != self.ROWS:
-            # OpenCV resize function
-            frame_cropped = cv2.resize(frame, (self.COLS, self.ROWS), interpolation=cv2.INTER_CUBIC)
 
-        # converting to RGB (numpy way)
-        frame_rgb = 0.299 * frame_cropped[:, :, 0] + 0.587 * frame_cropped[:, :, 1] + 0.114 * frame_cropped[:, :, 2]
-
-        # convert everything to black and white (agent will train faster)
-        frame_rgb[frame_rgb < 100] = 0
-        frame_rgb[frame_rgb >= 100] = 255
-        # converting to RGB (OpenCV way)
-        # frame_rgb = cv2.cvtColor(frame_cropped, cv2.COLOR_RGB2GRAY)
-
-        # dividing by 255 we expresses value to 0-1 representation
-        new_frame = np.array(frame_rgb).astype(np.float32) / 255.0
-
-        # push our data by 1 frame, similar as deq() function work
-        self.image_memory = np.roll(self.image_memory, 1, axis=0)
-
-        # inserting new frame to free space
-        self.image_memory[0, :, :] = new_frame
-
-        # show image frame
-        # self.imshow(self.image_memory,0)
-        # self.imshow(self.image_memory,1)
-        # self.imshow(self.image_memory,2)
-        # self.imshow(self.image_memory,3)
-
-        return np.expand_dims(self.image_memory, axis=0)
-
-    def reset(self):
-        frame = self.env.reset()
-        for i in range(self.REM_STEP):
-            state = self.GetImage(frame)
-        return state
-
-    def step(self, action):
-        next_state, reward, done, info = self.env.step(action)
-        next_state = self.GetImage(next_state)
-        return next_state, reward, done, info
-
-    def run(self):
+    def train(self):
+        max_steps = 200
         for e in range(self.EPISODES):
-            state = self.reset()
+            step = 0
+            state = self.env.reset()
             done, score, SAVING = False, 0, ''
-            while not done:
+            while step < max_steps:
+                step += 1
                 # self.env.render()
                 # Actor picks an action
                 action = self.act(state)
                 # Retrieve new state, reward, and whether the state is terminal
-                next_state, reward, done, _ = self.step(action)
+                next_state, reward, done, _ = self.env.step(action)
                 # Memorize (state, action, reward) for training
                 self.remember(state, action, reward)
                 # Update current state
@@ -225,31 +153,41 @@ class A2CAgent:
                         SAVING = ""
                     print("episode: {}/{}, score: {}, average: {:.2f} {}".format(e, self.EPISODES, score, average,
                                                                                  SAVING))
+                    self.learn()
+                    step = max_steps
 
-                    self.replay()
         # close environemnt when finish training
-        self.env.close()
+        self.env.game.close()
 
     def test(self, Actor_name, Critic_name):
         self.load(Actor_name, Critic_name)
+        game = self.env.game
         for e in range(100):
-            state = self.reset()
-            done = False
-            score = 0
-            while not done:
-                action = np.argmax(self.Actor.predict(state))
-                state, reward, done, _ = self.step(action)
-                score += reward
+
+            self.env.game.new_episode()
+            state = game.get_state().screen_buffer
+            state = self.env.stack_frames(self.env.stacked_frames, state, True)
+            state = np.reshape(state, [1, *self.state_size])
+
+            while not game.is_episode_finished():
+                Qs = self.Actor.predict(state)
+
+                # Take the biggest Q value (= the best action)
+                choice = np.argmax(Qs)
+                action = self.env.possible_actions[int(choice)]
+
+                game.make_action(action)
+                done = game.is_episode_finished()
+
                 if done:
-                    print("episode: {}/{}, score: {}".format(e, self.EPISODES, score))
+                    # print("episode: {}/{}, score: {}".format(e, self.EPISODES, score))
                     break
-        self.env.close()
+                else:
+                    next_state = game.get_state().screen_buffer
+                    next_state = self.env.stack_frames(self.env.stacked_frames, next_state, False)
+                    next_state = np.reshape(next_state, [1, *self.state_size])
+                    state = next_state
 
-
-if __name__ == "__main__":
-    # env_name = 'PongDeterministic-v4'
-    env_name = 'Pong-v4'
-    agent = A2CAgent(env_name)
-    agent.run()
-    # agent.test('Pong-v0_A2C_2.5e-05_Actor.h5', '')
-    # agent.test('PongDeterministic-v4_A2C_1e-05_Actor.h5', '')
+            score = game.get_total_reward()
+            print("episode: {}/{}, score: {}".format(e, 100, score))
+        # self.env.close()

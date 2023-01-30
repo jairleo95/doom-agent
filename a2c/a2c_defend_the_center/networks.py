@@ -7,7 +7,7 @@ from keras.models import model_from_json
 from keras.models import Sequential, load_model, Model
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.layers import TimeDistributed
-from keras.layers import Convolution2D, Dense, Flatten,  MaxPooling2D, Input, AveragePooling2D, Lambda,  Activation, Embedding
+from keras.layers import Conv2D, Dense, Flatten,  MaxPooling2D, Input, AveragePooling2D, Lambda,  Activation, Embedding
 from keras.optimizers import SGD, Adam
 from keras.layers import LSTM, GRU, BatchNormalization
 from keras import backend as K
@@ -25,9 +25,9 @@ class Networks(object):
         """
 
         state_input = Input(shape=(input_shape))
-        cnn_feature = Convolution2D(32, 8, 8, subsample=(4,4), activation='relu')(state_input)
-        cnn_feature = Convolution2D(64, 4, 4, subsample=(2,2), activation='relu')(cnn_feature)
-        cnn_feature = Convolution2D(64, 3, 3, activation='relu')(cnn_feature)
+        cnn_feature = Conv2D(32, 8, 8, subsample=(4,4), activation='relu')(state_input)
+        cnn_feature = Conv2D(64, 4, 4, subsample=(2,2), activation='relu')(cnn_feature)
+        cnn_feature = Conv2D(64, 3, 3, activation='relu')(cnn_feature)
         cnn_feature = Flatten()(cnn_feature)
         cnn_feature = Dense(512, activation='relu')(cnn_feature)
 
@@ -48,13 +48,13 @@ class Networks(object):
         """
 
         model = Sequential()
-        model.add(Convolution2D(32, 8, strides=(4,4), input_shape=(input_shape)))
+        model.add(Conv2D(32, 8, strides=(4,4), input_shape=(input_shape)))
         model.add(BatchNormalization())
         model.add(Activation('relu'))
-        model.add(Convolution2D(64, 4, strides=(2,2)))
+        model.add(Conv2D(64, 4, strides=(2,2)))
         model.add(BatchNormalization())
         model.add(Activation('relu'))
-        model.add(Convolution2D(64, 3, 3))
+        model.add(Conv2D(64, 3, 3))
         model.add(BatchNormalization())
         model.add(Activation('relu'))
         model.add(Flatten())
@@ -77,13 +77,13 @@ class Networks(object):
         """
 
         model = Sequential()
-        model.add(Convolution2D(32, 8, strides=(4,4), input_shape=(input_shape)))
+        model.add(Conv2D(32, 8, strides=(4,4), input_shape=(input_shape)))
         model.add(BatchNormalization())
         model.add(Activation('relu'))
-        model.add(Convolution2D(64, 4, strides=(2,2)))
+        model.add(Conv2D(64, 4, strides=(2,2)))
         model.add(BatchNormalization())
         model.add(Activation('relu'))
-        model.add(Convolution2D(64, 3, 3))
+        model.add(Conv2D(64, 3, 3))
         model.add(BatchNormalization())
         model.add(Activation('relu'))
         model.add(Flatten())
@@ -107,13 +107,13 @@ class Networks(object):
         """
 
         model = Sequential()
-        model.add(Convolution2D(32, 8, 8, subsample=(4,4), input_shape=(input_shape)))
+        model.add(Conv2D(32, 8, 8, subsample=(4,4), input_shape=(input_shape)))
         model.add(BatchNormalization())
         model.add(Activation('relu'))
-        model.add(Convolution2D(64, 4, 4, subsample=(2,2)))
+        model.add(Conv2D(64, 4, 4, subsample=(2,2)))
         model.add(BatchNormalization())
         model.add(Activation('relu'))
-        model.add(Convolution2D(64, 3, 3))
+        model.add(Conv2D(64, 3, 3))
         model.add(BatchNormalization())
         model.add(Activation('relu'))
         model.add(Flatten())
@@ -134,9 +134,9 @@ class Networks(object):
     def dqn(input_shape, action_size, learning_rate):
 
         model = Sequential()
-        model.add(Convolution2D(32, 8, 8, subsample=(4,4), activation='relu', input_shape=(input_shape)))
-        model.add(Convolution2D(64, 4, 4, subsample=(2,2), activation='relu'))
-        model.add(Convolution2D(64, 3, 3, activation='relu'))
+        model.add(Conv2D(32, 8, 8, subsample=(4,4), activation='relu', input_shape=(input_shape)))
+        model.add(Conv2D(64, 4, 4, subsample=(2,2), activation='relu'))
+        model.add(Conv2D(64, 3, 3, activation='relu'))
         model.add(Flatten())
         model.add(Dense(output_dim=512, activation='relu'))
         model.add(Dense(output_dim=action_size, activation='linear'))
@@ -150,9 +150,9 @@ class Networks(object):
     def drqn(input_shape, action_size, learning_rate):
 
         model = Sequential()
-        model.add(TimeDistributed(Convolution2D(32, 8, 8, subsample=(4,4), activation='relu'), input_shape=(input_shape)))
-        model.add(TimeDistributed(Convolution2D(64, 4, 4, subsample=(2,2), activation='relu')))
-        model.add(TimeDistributed(Convolution2D(64, 3, 3, activation='relu')))
+        model.add(TimeDistributed(Conv2D(32, 8, 8, subsample=(4,4), activation='relu'), input_shape=(input_shape)))
+        model.add(TimeDistributed(Conv2D(64, 4, 4, subsample=(2,2), activation='relu')))
+        model.add(TimeDistributed(Conv2D(64, 3, 3, activation='relu')))
         model.add(TimeDistributed(Flatten()))
 
         # Use all traces for training
@@ -174,9 +174,9 @@ class Networks(object):
         """
 
         state_input = Input(shape=(input_shape)) # 4x64x64x3
-        x = TimeDistributed(Convolution2D(32, 8, 8, subsample=(4,4), activation='relu'))(state_input)
-        x = TimeDistributed(Convolution2D(64, 4, 4, subsample=(2,2), activation='relu'))(x)
-        x = TimeDistributed(Convolution2D(64, 3, 3, activation='relu'))(x)
+        x = TimeDistributed(Conv2D(32, 8, 8, subsample=(4,4), activation='relu'))(state_input)
+        x = TimeDistributed(Conv2D(64, 4, 4, subsample=(2,2), activation='relu'))(x)
+        x = TimeDistributed(Conv2D(64, 3, 3, activation='relu'))(x)
         x = TimeDistributed(Flatten())(x)
 
         x = LSTM(512, activation='tanh')(x)
