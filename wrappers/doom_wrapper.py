@@ -11,20 +11,26 @@ from vizdoom.vizdoom import ScreenResolution
 
 
 class DoomEnv():
-    def __init__(self, stack_size, img_shape):
+    def __init__(self, stack_size, img_shape,
+                 crop_args=[30, -10, 30, -30],
+                 scenario ="basic.cfg",
+                 resolution=ScreenResolution.RES_160X120):
         self.game = vzd.DoomGame()
+        self.scenario = scenario
+        self.resolution = resolution
         self.stack_size = stack_size
         self.img_shape = img_shape
         self.possible_actions = None
         self.stacked_frames = None
         self.is_new_episode = True
+        self.crop_args = crop_args
 
     def create_env(self):
         # Here our possible actions
-        self.game.load_config("../scenarios/basic.cfg")
+        self.game.load_config("../scenarios/"+self.scenario)
         # self.game.set_sound_enabled(True)
-        # self.game.set_doom_scenario_path("basic.wad")
-        self.game.set_screen_resolution(ScreenResolution.RES_160X120)
+        # self.game.set_doom_scenario_path("../scenarios/defend_the_center.wad")
+        self.game.set_screen_resolution(self.resolution)
         self.game.init()
 
         num_actions = self.game.get_available_buttons_size()
@@ -39,11 +45,9 @@ class DoomEnv():
     def step(self, action):
 
         next_state = self.get_image(self.get_state())
-        # next_state = self.stack_frames(self.stacked_frames, self.get_state(), False)
         reward = self.game.make_action(self.possible_actions[action])
         done = self.game.is_episode_finished()
         info =""
-        # self.imshow(next_state)
         return next_state, reward, done, info
 
     def get_state(self):
@@ -51,16 +55,21 @@ class DoomEnv():
 
     def reset(self):
         self.game.new_episode()
-        print("reset.state.shape[before]:", self.get_state().shape)
-        # state = self.stack_frames(self.stacked_frames, self.get_state(), True)
-        state = self.get_image(self.get_state())
-        print("reset.state.shape:", state.shape)
+        state = self.get_image(self.get_state(), True)
         return state
 
     def preprocess_frame(self, frame):
         # Crop the screen (remove the roof because it contains no information)
-        cropped_frame = frame[30:-10, 30:-30]
-        # cropped_frame = np.rollaxis(frame, 0, 3)
+
+        print("frame.shape: ", frame.shape)
+        # cropped_frame = frame[30:-10, 30:-30]
+        #crop parameters
+        # crop_args = [15, -5, 20, -20]
+        args = self.crop_args
+        cropped_frame = frame[args[0]:args[1], args[2]:args[3]]
+        print("cropped_frame.shape: ", cropped_frame.shape)
+        # self.imshow(np.rollaxis(frame, 0, 3))
+        # np.rollaxis(frame, 0, 3)
         # Normalize Pixel Values
         normalized_frame = cropped_frame / 255.0
         # Resize
@@ -82,7 +91,6 @@ class DoomEnv():
             # Stack the frames
             stacked_state = np.stack(stacked_frames, axis=0)
             # self.imshow(np.moveaxis(stacked_state, 2, 0))
-            # self.imshow(np.moveaxis(stacked_state, 2, 0))
 
         else:
             # Append frame to deque, automatically removes the oldest frame
@@ -93,9 +101,11 @@ class DoomEnv():
 
     def get_image(self, frame, is_new_episode=False):
         #channel first
-        image = self.preprocess_frame(frame)
-        return np.expand_dims(image, axis=0)
-        # return self.stack_frames(self.stacked_frames, frame, is_new_episode)
+        #stack frames
+        image = self.stack_frames(self.stacked_frames, frame, is_new_episode)
+        # image = self.preprocess_frame(frame)
+        # return np.expand_dims(image, axis=0)
+        return image
 
     def imshow(self, image, rem_step=0):
         cv2.imshow("Image", image[rem_step, ...])
@@ -105,7 +115,12 @@ class DoomEnv():
 
 
 if __name__ == '__main__':
-    env = DoomEnv(stack_size=4, img_shape=(64, 64))
+    env = DoomEnv(stack_size=4,
+                  img_shape=(64, 64),
+                  crop_args=[15, -5, 20, -20],
+                  scenario="deadly_corridor.cfg",
+                  resolution=ScreenResolution.RES_160X120
+                  )
     num_actions, action_shape = env.create_env()
     env.game.new_episode()
 
@@ -116,7 +131,6 @@ if __name__ == '__main__':
         next_state, reward, done, _ = env.step(action)
 
         # frame = env.get_image(next_state, False)
-
 
         env.imshow(next_state, 0)
         time.sleep(3)

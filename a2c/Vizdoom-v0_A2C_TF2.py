@@ -56,7 +56,7 @@ class A2CAgent:
         self.env = env
 
         self.action_size = num_actions
-        self.EPISODES, self.max_average = 10000, -21.0  # specific for pong
+        self.EPISODES, self.max_average = 50, 0.0  # specific for pong
         self.lr = 0.000025
 
         # Instantiate games and plot memory
@@ -75,6 +75,7 @@ class A2CAgent:
 
     def remember(self, state, action, reward):
         # store episode actions to memory
+        state = np.expand_dims(state, axis=0)
         self.states.append(state)
         action_onehot = np.zeros([self.action_size])
         action_onehot[action] = 1
@@ -84,6 +85,9 @@ class A2CAgent:
     def act(self, state):
         # Use the network to predict the next action to take, using the model
         print('act.state.shape', state.shape)
+        state = np.expand_dims(state, axis=0)
+        print('act.state.shape.expand_dims', state.shape)
+        #act.state.shape.expand_dims (1, 4, 64, 64)
         prediction = self.Actor.predict(state)[0]
         action = np.random.choice(self.action_size, p=prediction)
         return action
@@ -142,7 +146,8 @@ class A2CAgent:
         self.scores.append(score)
         self.episodes.append(episode)
         self.average.append(sum(self.scores[-50:]) / len(self.scores[-50:]))
-        if str(episode)[-2:] == "00":  # much faster than episode % 100
+        # if str(episode)[-2:] == "00":  # much faster than episode % 100
+        if episode % 5:
             pylab.plot(self.episodes, self.scores, 'b')
             pylab.plot(self.episodes, self.average, 'r')
             pylab.ylabel('Score', fontsize=18)
@@ -162,10 +167,13 @@ class A2CAgent:
 
 
     def run(self):
+        max_steps = 100
         for e in range(self.EPISODES):
+            step = 0
             state = self.env.reset()
             done, score, SAVING = False, 0, ''
-            while not done:
+            while step < max_steps:
+                step += 1
                 # self.env.render()
                 # Actor picks an action
                 action = self.act(state)
@@ -187,34 +195,51 @@ class A2CAgent:
                         SAVING = ""
                     print("episode: {}/{}, score: {}, average: {:.2f} {}".format(e, self.EPISODES, score, average,
                                                                                  SAVING))
-
                     self.replay()
+                    step = max_steps
+
         # close environemnt when finish training
         self.env.game.close()
 
     def test(self, Actor_name, Critic_name):
         self.load(Actor_name, Critic_name)
         for e in range(100):
-            state = self.reset()
-            done = False
-            score = 0
-            while not done:
-                action = np.argmax(self.Actor.predict(state))
-                state, reward, done, _ = self.step(action)
-                score += reward
+
+            env.game.new_episode()
+            state = env.game.get_state().screen_buffer
+            state = env.stack_frames(env.stacked_frames, state, True)
+            state = np.reshape(state, [1, *agent.state_size])
+
+            while not env.game.is_episode_finished():
+                Qs = self.Actor.predict(state)
+
+                # Take the biggest Q value (= the best action)
+                choice = np.argmax(Qs)
+                action = env.possible_actions[int(choice)]
+
+                env.game.make_action(action)
+                done = env.game.is_episode_finished()
+
                 if done:
-                    print("episode: {}/{}, score: {}".format(e, self.EPISODES, score))
+                    # print("episode: {}/{}, score: {}".format(e, self.EPISODES, score))
                     break
-        self.env.close()
+                else:
+                    next_state = env.game.get_state().screen_buffer
+                    next_state = env.stack_frames(env.stacked_frames, next_state, False)
+                    next_state = np.reshape(next_state, [1, *agent.state_size])
+                    state = next_state
+
+            score = env.game.get_total_reward()
+            print("Score: ", score)
+        # self.env.close()
 
 
 if __name__ == "__main__":
-    # env_name = 'PongDeterministic-v4'
     env_name = 'Vizdoom-v0'
     state_size = (4, 64, 64)
-    env = DoomEnv(stack_size=4, img_shape=(4, 64, 64))
+    env = DoomEnv(stack_size=4, img_shape=(64, 64))
     num_actions, action_shape = env.create_env()
     agent = A2CAgent(env_name, env, state_size, num_actions)
-    agent.run()
-    # agent.test('Pong-v0_A2C_2.5e-05_Actor.h5', '')
+    # agent.run()
+    agent.test('Models/Vizdoom-v0_A2C_2.5e-05_Actor.h5', '')
     # agent.test('PongDeterministic-v4_A2C_1e-05_Actor.h5', '')
