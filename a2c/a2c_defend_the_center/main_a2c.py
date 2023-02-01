@@ -2,6 +2,8 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
+from datetime import datetime
+
 import skimage as skimage
 from skimage import transform, color
 import numpy as np
@@ -11,7 +13,6 @@ import tensorflow as tf
 
 from a2c.a2c_defend_the_center.networks import Networks
 from a2c.a2c_defend_the_center.agent import A2CAgent
-
 
 def preprocessImg(img, size):
     img = np.rollaxis(img, 0, 3)  # It becomes (640, 480, 3)
@@ -36,11 +37,14 @@ if __name__ == "__main__":
             # Virtual devices must be set before GPUs have been initialized
             print(e)
 
+    #statistics
+    statistics_file = "statistics/a2c_stats_run_" + datetime.now().strftime("%y-%m-%d-%H-%M") + ".txt"
+
     game = DoomGame()
     game.load_config("../../scenarios/defend_the_center.cfg")
-    game.set_sound_enabled(True)
+    game.set_sound_enabled(False)
     game.set_screen_resolution(ScreenResolution.RES_640X480)
-    game.set_window_visible(False)
+    game.set_window_visible(True)
     game.init()
 
     # Maximum number of episodes
@@ -95,6 +99,8 @@ if __name__ == "__main__":
             x_t = np.reshape(x_t, (1, img_rows, img_cols, 1))
             s_t = np.append(x_t, s_t[:, :, :, :3], axis=3)
 
+            print("train.s_t.shape:", s_t.shape)#(1, 64, 64, 4)
+
             # Sample action from stochastic softmax policy
             action_idx, policy = agent.get_action(s_t)
             a_t[action_idx] = 1
@@ -133,7 +139,7 @@ if __name__ == "__main__":
 
             if (is_terminated and t > agent.observe):
                 # Every episode, agent learns from sample returns
-                loss = agent.train_model()
+                loss = agent.learn()
 
             # Save model every 10000 iterations
             if t % 10000 == 0:
@@ -164,7 +170,8 @@ if __name__ == "__main__":
                     life_buffer, ammo_buffer, kills_buffer = [], [], []
 
                     # Write Rolling Statistics to file
-                    with open("statistics/a2c_stats.txt", "w") as stats_file:
+
+                    with open(statistics_file, "a") as stats_file:
                         stats_file.write('Game: ' + str(GAME) + '\n')
                         stats_file.write('Max Score: ' + str(max_life) + '\n')
                         stats_file.write('mavg_score: ' + str(agent.mavg_score) + '\n')

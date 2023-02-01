@@ -14,7 +14,7 @@ class DoomEnv():
     def __init__(self, stack_size, img_shape,
                  crop_args=[30, -10, 30, -30],
                  scenario ="basic.cfg",
-                 resolution=ScreenResolution.RES_160X120):
+                 resolution=ScreenResolution.RES_160X120, color_mode="GRAY", img_channel="last"):
         self.game = vzd.DoomGame()
         self.scenario = scenario
         self.resolution = resolution
@@ -24,13 +24,26 @@ class DoomEnv():
         self.stacked_frames = None
         self.is_new_episode = True
         self.crop_args = crop_args
+        self.color_mode = color_mode
+        self.img_channel = img_channel
 
     def create_env(self):
         # Here our possible actions
-        self.game.load_config("../scenarios/"+self.scenario)
+        self.game.load_config("../../scenarios/"+self.scenario)
         # self.game.set_sound_enabled(True)
         # self.game.set_doom_scenario_path("../scenarios/defend_the_center.wad")
         self.game.set_screen_resolution(self.resolution)
+        # set color mode
+        if self.color_mode == 'RGB':
+            self.game.set_screen_format(vzd.ScreenFormat.CRCGCB)
+            # self.num_channels = 3
+        elif self.color_mode == 'GRAY':
+            self.game.set_screen_format(vzd.ScreenFormat.GRAY8)
+            # self.num_channels = 1
+        else:
+            print("Unknown color mode")
+            raise
+
         self.game.init()
 
         num_actions = self.game.get_available_buttons_size()
@@ -50,8 +63,20 @@ class DoomEnv():
         info =""
         return next_state, reward, done, info
 
+    def step(self, action, frame_per_action):
+        next_state = self.get_image(self.get_state())
+        self.game.set_action(self.possible_actions[action])
+        self.game.advance_action(frame_per_action)
+        reward = self.game.get_last_reward()
+        done = self.game.is_episode_finished()
+        info = ""
+        return next_state, reward, done, info
+
     def get_state(self):
         return self.game.get_state().screen_buffer
+
+    def get_variables(self):
+        return self.game.get_state().game_variables
 
     def reset(self):
         self.game.new_episode()
@@ -60,11 +85,8 @@ class DoomEnv():
 
     def preprocess_frame(self, frame):
         # Crop the screen (remove the roof because it contains no information)
-        print("preprocess_frame.frame.shape: ", frame.shape)
-        #crop parameters
         args = self.crop_args
         cropped_frame = frame[args[0]:args[1], args[2]:args[3]]
-        print("preprocess_frame.cropped_frame.shape: ", cropped_frame.shape)
         # Normalize Pixel Values
         normalized_frame = cropped_frame / 255.0
         # Resize
@@ -74,7 +96,6 @@ class DoomEnv():
     def stack_frames(self, stacked_frames, state, is_new_episode):
         # Preprocess frame
         frame = self.preprocess_frame(state)
-        print("stack_frames.frame.shape", frame.shape)
 
         if is_new_episode:
             # Clear our stacked_frames
@@ -84,25 +105,34 @@ class DoomEnv():
             for i in range(self.stack_size):
                 stacked_frames.append(frame)
             # Stack the frames
-            stacked_state = np.stack(stacked_frames, axis=0)
+            if self.img_channel == "last":
+                stacked_state = np.stack(stacked_frames, axis=2)
+            else:
+                stacked_state = np.stack(stacked_frames, axis=0)
+
+            print("stacked_state.shape:", stacked_state.shape)
             # self.imshow(np.moveaxis(stacked_state, 2, 0))
 
         else:
             # Append frame to deque, automatically removes the oldest frame
             stacked_frames.append(frame)
             # Build the stacked state (first dimension specifies different frames)
-            stacked_state = np.stack(stacked_frames, axis=0)
+            if self.img_channel == "last":
+                stacked_state = np.stack(stacked_frames, axis=2)
+            else:
+                stacked_state = np.stack(stacked_frames, axis=0)
+
+            print("stacked_state.shape:", stacked_state.shape)
         return stacked_state
 
     def get_image(self, frame, is_new_episode=False):
-        #channel first
         #stack frames
         image = self.stack_frames(self.stacked_frames, frame, is_new_episode)
-        # image = self.preprocess_frame(frame)
-        # return np.expand_dims(image, axis=0)
         return image
 
     def imshow(self, image, rem_step=0):
+        if self.img_channel == "last":
+            image = np.moveaxis(image, 2, 0)
         cv2.imshow("Image", image[rem_step, ...])
         if cv2.waitKey(25) & 0xFF == ord("q"):
             cv2.destroyAllWindows()
@@ -113,8 +143,8 @@ if __name__ == '__main__':
     env = DoomEnv(stack_size=4,
                   img_shape=(64, 64),
                   crop_args=[15, -5, 20, -20],
-                  scenario="deadly_corridor.cfg",
-                  resolution=ScreenResolution.RES_160X120
+                  scenario="defend_the_center.cfg",
+                  resolution=ScreenResolution.RES_640X480, img_channel="last"
                   )
     num_actions, action_shape = env.create_env()
     env.game.new_episode()
