@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import gym
-
+import tensorflow as tf
 
 def plotLearning(x, scores, epsilons, filename, lines=None):
     fig = plt.figure()
@@ -44,6 +44,15 @@ def plot_learning_curve(x, scores, figure_file):
     plt.plot(x, running_avg)
     plt.title('Running average of previous 100 scores')
     plt.savefig(figure_file)
+
+def manage_memory():
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        try:
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+        except RuntimeError as e:
+            print(e)
 
 class SkipEnv(gym.Wrapper):
     def __init__(self, env=None, skip=4):
