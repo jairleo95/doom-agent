@@ -28,11 +28,6 @@ class VizDoomGym(Env):
         self.action_space = Discrete(self.num_actions)
         self.observation_space = Box(low=0, high=255, shape=state_shape, dtype=np.uint8)
 
-        # Game variables: HEALTH DAMAGE_TAKEN HITCOUNT SELECTED_WEAPON_AMMO
-        self.damage_taken = 0
-        self.hitcount = 0
-        self.ammo = 52  ## CHANGED
-
     # This is how we take a step in the environment
     def step(self, action):
         # Specify action and take step
@@ -44,21 +39,6 @@ class VizDoomGym(Env):
         if self.game.get_state():
             state = self.game.get_state().screen_buffer
             state = self.grayscale(state)
-
-            # Reward shaping
-            # game_variables = self.game.get_state().game_variables
-            # health, damage_taken, hitcount, ammo = game_variables
-            #
-            # # Calculate reward deltas
-            # damage_taken_delta = -damage_taken + self.damage_taken
-            # self.damage_taken = damage_taken
-            # hitcount_delta = hitcount - self.hitcount
-            # self.hitcount = hitcount
-            # ammo_delta = ammo - self.ammo
-            # self.ammo = ammo
-            #
-            # reward = reward + damage_taken_delta * 10 + hitcount_delta * 200 + ammo_delta * 5
-            # info = ammo
         else:
             state = np.zeros(self.observation_space.shape)
 
@@ -67,8 +47,7 @@ class VizDoomGym(Env):
 
         return state, reward, done, info
 
-        # Define how to render the game or environment
-
+    # Define how to render the game or environment
     def render(self):
         pass
 

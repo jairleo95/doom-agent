@@ -3,7 +3,7 @@ import pylab
 import cv2
 import os
 
-from a2c.a2c_defend_the_center.networks import Networks
+from a2c_defend_the_center.networks import Networks
 
 class A2CAgent:
 

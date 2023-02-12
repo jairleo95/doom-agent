@@ -11,8 +11,8 @@ import numpy as np
 from vizdoom import *
 import tensorflow as tf
 
-from a2c.a2c_defend_the_center.networks import Networks
-from a2c.a2c_defend_the_center.agent import A2CAgent
+from a2c_defend_the_center.networks import Networks
+from a2c_defend_the_center.agent import A2CAgent
 
 def preprocessImg(img, size):
     img = np.rollaxis(img, 0, 3)  # It becomes (640, 480, 3)

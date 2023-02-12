@@ -15,7 +15,7 @@ class A2CAgent:
         self.env = env
 
         self.action_size = num_actions
-        self.EPISODES, self.max_average = 1000, 0.0  # specific for pong
+        self.EPISODES, self.max_average = 300, 0.0  # specific for pong
         self.lr = 0.000025
 
         # Instantiate games and plot memory
@@ -43,10 +43,7 @@ class A2CAgent:
 
     def act(self, state):
         # Use the network to predict the next action to take, using the model
-        print('act.state.shape', state.shape)
         state = np.expand_dims(state, axis=0)
-        print('act.state.shape.expand_dims', state.shape)
-        #act.state.shape.expand_dims (1, 4, 64, 64)
         prediction = self.Actor.predict(state)[0]
         action = np.random.choice(self.action_size, p=prediction)
         return action
@@ -74,8 +71,6 @@ class A2CAgent:
         # reshape memory to appropriate shape for training
         states = np.vstack(self.states)
         actions = np.vstack(self.actions)
-        print("replay.states.shape", states.shape)
-        print("replay.actions.shape", actions.shape)
 
         # Compute discounted rewards
         discounted_r = self.discount_rewards(self.rewards)
@@ -125,13 +120,10 @@ class A2CAgent:
 
 
     def train(self):
-        max_steps = 200
         for e in range(self.EPISODES):
-            step = 0
             state = self.env.reset()
             done, score, SAVING = False, 0, ''
-            while step < max_steps:
-                step += 1
+            while not done:
                 # self.env.render()
                 # Actor picks an action
                 action = self.act(state)
@@ -154,7 +146,6 @@ class A2CAgent:
                     print("episode: {}/{}, score: {}, average: {:.2f} {}".format(e, self.EPISODES, score, average,
                                                                                  SAVING))
                     self.learn()
-                    step = max_steps
 
         # close environemnt when finish training
         self.env.game.close()

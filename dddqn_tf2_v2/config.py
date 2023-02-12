@@ -1,8 +1,8 @@
 ### MODEL HYPERPARAMETERS
 
 stack_size = 4
-state_high = 120
-state_width = 100
+state_high = 64
+state_width = 64
 state_size = (state_width, state_high, stack_size)
 img_shape = (state_width, state_high)
 # state_size = [100, 120, 4]  # Our input is a stack of 4 frames hence 100x120x4 (Width, height, channels)

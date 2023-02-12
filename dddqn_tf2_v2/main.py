@@ -25,7 +25,6 @@ if __name__ == '__main__':
                   img_shape=img_shape,
                   crop_args=[15, -5, 20, -20],
                   scenario="../scenarios/deadly_corridor.cfg",
-                  resolution=ScreenResolution.RES_640X480,
                   color_mode="GRAY",
                   img_channel="last")
     num_actions, action_shape = env.create_env()
