@@ -29,7 +29,7 @@ class DoomEnv():
 
     def create_env(self):
         # Here our possible actions
-        self.game.load_config("../../scenarios/"+self.scenario)
+        self.game.load_config(self.scenario)
         # self.game.set_sound_enabled(True)
         # self.game.set_doom_scenario_path("../scenarios/defend_the_center.wad")
         self.game.set_screen_resolution(self.resolution)
@@ -47,7 +47,8 @@ class DoomEnv():
         self.game.init()
 
         num_actions = self.game.get_available_buttons_size()
-        action_shape = list(range(0, num_actions - 1))
+        action_shape = list(range(0, num_actions))
+
         # Here we create an hot encoded version of our actions (x possible actions)
         # possible_actions = [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]...]
         self.possible_actions = np.identity(num_actions, dtype=int).tolist()
@@ -57,13 +58,20 @@ class DoomEnv():
 
     def step(self, action):
 
-        next_state = self.get_image(self.get_state())
         reward = self.game.make_action(self.possible_actions[action])
+
+        info = ""
+        if self.game.get_state():
+            next_state = self.get_image(self.get_state())
+
+        else:
+            next_state = np.zeros((self.img_shape[0], self.img_shape[1], self.stack_size))
+
         done = self.game.is_episode_finished()
-        info =""
+
         return next_state, reward, done, info
 
-    def step(self, action, frame_per_action):
+    def step_with_advance_action(self, action, frame_per_action):
         next_state = self.get_image(self.get_state())
         self.game.set_action(self.possible_actions[action])
         self.game.advance_action(frame_per_action)
@@ -93,41 +101,35 @@ class DoomEnv():
         preprocessed_frame = transform.resize(normalized_frame, self.img_shape)
         return preprocessed_frame
 
-    def stack_frames(self, stacked_frames, state, is_new_episode):
-        # Preprocess frame
-        frame = self.preprocess_frame(state)
-
+    def stack_frames(self, frame, is_new_episode):
         if is_new_episode:
             # Clear our stacked_frames
-            stacked_frames = deque([np.zeros(self.img_shape, dtype=np.int) for i in range(self.stack_size)], maxlen=4)
+            self.stacked_frames = deque([np.zeros(self.img_shape, dtype=np.int) for i in range(self.stack_size)], maxlen=4)
 
             # Because we're in a new episode, copy the same frame 4x
             for i in range(self.stack_size):
-                stacked_frames.append(frame)
+                self.stacked_frames.append(frame)
             # Stack the frames
             if self.img_channel == "last":
-                stacked_state = np.stack(stacked_frames, axis=2)
+                stacked_state = np.stack(self.stacked_frames, axis=2)
             else:
-                stacked_state = np.stack(stacked_frames, axis=0)
-
-            print("stacked_state.shape:", stacked_state.shape)
+                stacked_state = np.stack(self.stacked_frames, axis=0)
             # self.imshow(np.moveaxis(stacked_state, 2, 0))
 
         else:
             # Append frame to deque, automatically removes the oldest frame
-            stacked_frames.append(frame)
+            self.stacked_frames.append(frame)
             # Build the stacked state (first dimension specifies different frames)
             if self.img_channel == "last":
-                stacked_state = np.stack(stacked_frames, axis=2)
+                stacked_state = np.stack(self.stacked_frames, axis=2)
             else:
-                stacked_state = np.stack(stacked_frames, axis=0)
-
-            print("stacked_state.shape:", stacked_state.shape)
+                stacked_state = np.stack(self.stacked_frames, axis=0)
+            # print("stacked_state.shape:", stacked_state.shape)
         return stacked_state
 
     def get_image(self, frame, is_new_episode=False):
-        #stack frames
-        image = self.stack_frames(self.stacked_frames, frame, is_new_episode)
+        image = self.preprocess_frame(frame)
+        image = self.stack_frames(image, is_new_episode)
         return image
 
     def imshow(self, image, rem_step=0):
@@ -143,22 +145,23 @@ if __name__ == '__main__':
     env = DoomEnv(stack_size=4,
                   img_shape=(64, 64),
                   crop_args=[15, -5, 20, -20],
-                  scenario="defend_the_center.cfg",
+                  scenario="../scenarios/deadly_corridor.cfg",
                   resolution=ScreenResolution.RES_640X480, img_channel="last"
                   )
     num_actions, action_shape = env.create_env()
     env.game.new_episode()
 
-    for i in range(1000):
-        state = env.get_state()
-
-        action = random.choice(action_shape)
-        next_state, reward, done, _ = env.step(action)
-
+    for i in range(10):
+        state = env.reset()
+        done = False
         # frame = env.get_image(next_state, False)
+        # env.imshow(next_state, 0)
+        # time.sleep(3)
 
-        env.imshow(next_state, 0)
-        time.sleep(3)
-
-        if done:
-            state = env.reset()
+        while not done:
+            action = random.choice(action_shape)
+            next_state, reward, done, _ = env.step(action)
+            print("reward: ", reward)
+            if done:
+                # print("TOTAL Reward: ", total_reward)
+                break
