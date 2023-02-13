@@ -86,6 +86,9 @@ class DoomEnv():
     def get_variables(self):
         return self.game.get_state().game_variables
 
+    def render(self, visible):
+        pass
+
     def reset(self):
         self.game.new_episode()
         state = self.get_image(self.get_state(), True)

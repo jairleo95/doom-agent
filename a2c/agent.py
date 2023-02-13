@@ -15,7 +15,7 @@ class A2CAgent:
         self.env = env
 
         self.action_size = num_actions
-        self.EPISODES, self.max_average = 300, 0.0  # specific for pong
+        self.EPISODES, self.max_average = 2000, 0.0  # specific for pong
         self.lr = 0.000025
 
         # Instantiate games and plot memory
@@ -99,7 +99,6 @@ class A2CAgent:
         self.scores.append(score)
         self.episodes.append(episode)
         self.average.append(sum(self.scores[-50:]) / len(self.scores[-50:]))
-        # if str(episode)[-2:] == "00":  # much faster than episode % 100
         if episode % 5:
             pylab.plot(self.episodes, self.scores, 'b')
             pylab.plot(self.episodes, self.average, 'r')
@@ -154,30 +153,23 @@ class A2CAgent:
         self.load(Actor_name, Critic_name)
         game = self.env.game
         for e in range(100):
-
-            self.env.game.new_episode()
-            state = game.get_state().screen_buffer
-            state = self.env.stack_frames(self.env.stacked_frames, state, True)
+            done = False
+            state = self.env.reset()
             state = np.reshape(state, [1, *self.state_size])
 
-            while not game.is_episode_finished():
+            while not done:
                 Qs = self.Actor.predict(state)
 
                 # Take the biggest Q value (= the best action)
                 choice = np.argmax(Qs)
-                action = self.env.possible_actions[int(choice)]
 
-                game.make_action(action)
-                done = game.is_episode_finished()
+                next_state, reward, done, _ = self.env.step(int(choice))
+                next_state = np.reshape(next_state, [1, *self.state_size])
+                state = next_state
 
                 if done:
                     # print("episode: {}/{}, score: {}".format(e, self.EPISODES, score))
                     break
-                else:
-                    next_state = game.get_state().screen_buffer
-                    next_state = self.env.stack_frames(self.env.stacked_frames, next_state, False)
-                    next_state = np.reshape(next_state, [1, *self.state_size])
-                    state = next_state
 
             score = game.get_total_reward()
             print("episode: {}/{}, score: {}".format(e, 100, score))
