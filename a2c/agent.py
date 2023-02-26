@@ -15,7 +15,7 @@ class A2CAgent:
         self.env = env
 
         self.action_size = num_actions
-        self.EPISODES, self.max_average = 2000, 0.0  # specific for pong
+        self.EPISODES, self.max_average = 4000, 0.0  # specific for pong
         self.lr = 0.000025
 
         # Instantiate games and plot memory

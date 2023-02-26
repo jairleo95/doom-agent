@@ -162,7 +162,7 @@ def default_frame_processor(frame: Frame) -> Frame:
 def create_env(scenario: str, **kwargs) -> DoomEnv:
     # Create a VizDoom instance.
     game = vizdoom.DoomGame()
-    game.load_config(f'scenarios/{scenario}.cfg')
+    game.load_config(f'../scenarios/{scenario}.cfg')
     game.init()
 
     # Wrap the game with the Gym adapter.

@@ -9,7 +9,7 @@ from utils.utils import set_gpu_memory_size
 
 if __name__ == "__main__":
 
-    set_gpu_memory_size(3072)
+    set_gpu_memory_size(4096)
 
     env_name = 'Vizdoom-v0'
     state_size = (64, 64, 4)
