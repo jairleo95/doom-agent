@@ -7,7 +7,7 @@ from a2c_defend_the_center.networks import Networks
 
 class A2CAgent:
 
-    def __init__(self, env,state_size, action_size, statistics_file):
+    def __init__(self, env, state_size, action_size, statistics_file):
         # get size of state and action
         self.env_name = "Vizdoom_defend_the_center"
         self.state_size = state_size
@@ -179,7 +179,7 @@ class A2CAgent:
 
                 next_state, reward, done, _ = self.env.step(action, self.frame_per_action)
 
-                if (done):
+                if done:
                     # Save max_life
                     if (life > max_life):
                         max_life = life

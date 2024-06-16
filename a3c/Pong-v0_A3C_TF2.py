@@ -6,7 +6,7 @@ import os
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 import random
-import gym
+import gymnasium as gym
 import pylab
 import numpy as np
 import tensorflow as tf
@@ -44,7 +44,7 @@ def OurModel(input_shape, action_space, lr):
     value = Dense(1, kernel_initializer='he_uniform')(X)
 
     Actor = Model(inputs=X_input, outputs=action)
-    Actor.compile(loss='categorical_crossentropy', optimizer=RMSprop(lr=lr))
+    Actor.compile(loss='categorical_crossentropy', optimizer=RMSprop(learning_rate=lr))
 
     Critic = Model(inputs=X_input, outputs=value)
     Critic.compile(loss='mse', optimizer=RMSprop(lr=lr))

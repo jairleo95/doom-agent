@@ -15,7 +15,7 @@ class A2CAgent:
         self.env = env
 
         self.action_size = num_actions
-        self.EPISODES, self.max_average = 4000, 0.0  # specific for pong
+        self.EPISODES, self.max_average = 4000, 0.0
         self.lr = 0.000025
 
         # Instantiate games and plot memory
@@ -168,7 +168,7 @@ class A2CAgent:
                 state = next_state
 
                 if done:
-                    # print("episode: {}/{}, score: {}".format(e, self.EPISODES, score))
+                    print("episode: {}/{}, score: {}".format(e, self.EPISODES, score))
                     break
 
             score = game.get_total_reward()

@@ -41,7 +41,7 @@ if __name__ == "__main__":
     statistics_file = "statistics/a2c_stats_run_" + datetime.now().strftime("%y-%m-%d-%H-%M") + ".txt"
 
     game = DoomGame()
-    game.load_config("../../scenarios/defend_the_center.cfg")
+    game.load_config("../scenarios/defend_the_center.cfg")
     game.set_sound_enabled(False)
     game.set_screen_resolution(ScreenResolution.RES_640X480)
     game.set_window_visible(True)

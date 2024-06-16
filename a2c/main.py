@@ -17,4 +17,4 @@ if __name__ == "__main__":
     num_actions, action_shape = env.create_env()
     agent = A2CAgent(env_name, env, state_size, num_actions)
     agent.train()
-    # agent.test('Models/Vizdoom-v0_A2C_2.5e-05_Actor.h5', '')
+    #agent.test('Models/best-model-1/Vizdoom-v0_A2C_2.5e-05_Actor.h5', '')

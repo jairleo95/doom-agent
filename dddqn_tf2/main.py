@@ -25,13 +25,14 @@ from dddqn_tf2.config import *
 summary_filename = "logs/dddqn_tf2_vizdoom" + datetime.now().strftime("%y-%m-%d-%H-%M")
 writer = SummaryWriter(summary_filename)
 
-
 if __name__ == '__main__':
 
     # Create an environment of doom
     REM_STEP = 4
+    print("Starting environment")
     env = DoomEnv(stack_size=4, img_shape=(84, 84))
     num_actions, action_shape = env.create_env()
+    print("ENvironment created")
 
     agent = Agent(gamma=gamma, lr=learning_rate,
                   epsilon=explore_start, epsilon_end=explore_stop, epsilon_dec=decay_rate,
@@ -161,7 +162,7 @@ if training:
     # tensorboard --logdir=logs/
     # http://localhost:6006/
 
-agent.load_model("Models")
+#agent.load_model("Models")
 
 game = DoomGame()
 

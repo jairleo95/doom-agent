@@ -22,7 +22,7 @@ class DoomEnv():
         # Here we create an hot encoded version of our actions (x possible actions)
         # possible_actions = [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]...]
         self.possible_actions = np.identity(num_actions, dtype=int).tolist()
-        self.stacked_frames = deque([np.zeros(self.img_shape, dtype=np.int) for i in range(self.stack_size)], maxlen=4)
+        self.stacked_frames = deque([np.zeros(self.img_shape, dtype=int) for i in range(self.stack_size)], maxlen=4)
 
         return num_actions, action_shape
 
@@ -55,7 +55,7 @@ class DoomEnv():
 
         if is_new_episode:
             # Clear our stacked_frames
-            stacked_frames = deque([np.zeros(self.img_shape, dtype=np.int) for i in range(self.stack_size)], maxlen=4)
+            stacked_frames = deque([np.zeros(self.img_shape, dtype=int) for i in range(self.stack_size)], maxlen=4)
 
             # Because we're in a new episode, copy the same frame 4x
             for i in range(self.stack_size):

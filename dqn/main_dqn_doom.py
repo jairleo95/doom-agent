@@ -68,7 +68,7 @@ def preprocess_frame(frame):
 
 stack_size = 4  # We stack 4 frames
 # Initialize deque with zero-images one array for each image
-stacked_frames = deque([np.zeros((84, 84), dtype=np.int) for i in range(stack_size)], maxlen=4)
+stacked_frames = deque([np.zeros((84, 84), dtype=int) for i in range(stack_size)], maxlen=4)
 
 def stack_frames(stacked_frames, state, is_new_episode):
     # Preprocess frame
@@ -76,7 +76,7 @@ def stack_frames(stacked_frames, state, is_new_episode):
 
     if is_new_episode:
         # Clear our stacked_frames
-        stacked_frames = deque([np.zeros((84, 84), dtype=np.int) for i in range(stack_size)], maxlen=4)
+        stacked_frames = deque([np.zeros((84, 84), dtype=int) for i in range(stack_size)], maxlen=4)
 
         # Because we're in a new episode, copy the same frame 4x
         stacked_frames.append(frame)
@@ -259,14 +259,14 @@ if __name__ == '__main__':
                         agent.best_reward = total_reward
 
                     # the episode ends so no next state
-                    next_state = np.zeros((84, 84), dtype=np.int)
+                    next_state = np.zeros((84, 84), dtype=int)
                     next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
                     # Set step = max_steps to end the episode
                     step = max_steps
                     agent.store_transition(state, action, reward, next_state)
 
                 else:
-                    # Get the next state and Stack the frame of the next_state
+                    # Get the next state and Stack the frame of the next_state1.21.6
                     next_state = game.get_state().screen_buffer
                     next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
                     agent.store_transition(state, action, reward, next_state)

@@ -14,7 +14,8 @@ from dddqn_tf2_v2.agent import Agent
 from dddqn_tf2_v2.config import *
 from utils.utils import *
 if __name__ == '__main__':
-    set_gpu_memory_size(memory_limit=2048)
+    print('Num GPUs Available: ', len(tf.config.list_physical_devices('GPU')))
+    set_gpu_memory_size(memory_limit=8192)
 
     # Summary writer de TensorBoardX
     summary_filename = "logs/dddqn_tf2_vizdoom" + datetime.now().strftime("%y-%m-%d-%H-%M")
