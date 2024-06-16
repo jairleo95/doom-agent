@@ -6,6 +6,7 @@ __pycache__/
 *$py.class
 *.h5
 */logs/*
+*_vizdoom.ini
 
 # C extensions
 *.so
