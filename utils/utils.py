@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import gym
+import gymnasium as gym
 import tensorflow as tf
 
 def plotLearning(x, scores, epsilons, filename, lines=None):
