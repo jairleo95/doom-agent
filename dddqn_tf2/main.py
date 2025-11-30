@@ -1,6 +1,7 @@
 #https://github.com/jairleo95/Reinforcement_Learning_by_pythonlessons/blob/c9717f523fb9bd4bb8ccb5b34bd6ee6c76ea21b6/05_CartPole-reinforcement-learning_PER_D3QN/Cartpole_PER_D3QN_TF2.py#L195
 #https://github.com/simoninithomas/Deep_reinforcement_learning_Course/blob/master/Dueling%20Double%20DQN%20with%20PER%20and%20fixed-q%20targets/Dueling%20Deep%20Q%20Learning%20with%20Doom%20(%2B%20double%20DQNs%20and%20Prioritized%20Experience%20Replay).ipynb
-
+#https://roberttlange.github.io/posts/2019/08/blog-post-5/
+#https://spinningup.openai.com/en/latest/spinningup/keypapers.html
 import os
 
 import sys
@@ -24,13 +25,14 @@ from dddqn_tf2.config import *
 summary_filename = "logs/dddqn_tf2_vizdoom" + datetime.now().strftime("%y-%m-%d-%H-%M")
 writer = SummaryWriter(summary_filename)
 
-
 if __name__ == '__main__':
 
     # Create an environment of doom
     REM_STEP = 4
+    print("Starting environment")
     env = DoomEnv(stack_size=4, img_shape=(84, 84))
     num_actions, action_shape = env.create_env()
+    print("ENvironment created")
 
     agent = Agent(gamma=gamma, lr=learning_rate,
                   epsilon=explore_start, epsilon_end=explore_stop, epsilon_dec=decay_rate,
@@ -160,7 +162,7 @@ if training:
     # tensorboard --logdir=logs/
     # http://localhost:6006/
 
-agent.load_model("Models")
+#agent.load_model("Models")
 
 game = DoomGame()
 

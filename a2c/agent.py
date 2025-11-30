@@ -15,7 +15,7 @@ class A2CAgent:
         self.env = env
 
         self.action_size = num_actions
-        self.EPISODES, self.max_average = 1000, 0.0  # specific for pong
+        self.EPISODES, self.max_average = 4000, 0.0
         self.lr = 0.000025
 
         # Instantiate games and plot memory
@@ -43,10 +43,7 @@ class A2CAgent:
 
     def act(self, state):
         # Use the network to predict the next action to take, using the model
-        print('act.state.shape', state.shape)
         state = np.expand_dims(state, axis=0)
-        print('act.state.shape.expand_dims', state.shape)
-        #act.state.shape.expand_dims (1, 4, 64, 64)
         prediction = self.Actor.predict(state)[0]
         action = np.random.choice(self.action_size, p=prediction)
         return action
@@ -74,8 +71,6 @@ class A2CAgent:
         # reshape memory to appropriate shape for training
         states = np.vstack(self.states)
         actions = np.vstack(self.actions)
-        print("replay.states.shape", states.shape)
-        print("replay.actions.shape", actions.shape)
 
         # Compute discounted rewards
         discounted_r = self.discount_rewards(self.rewards)
@@ -104,7 +99,6 @@ class A2CAgent:
         self.scores.append(score)
         self.episodes.append(episode)
         self.average.append(sum(self.scores[-50:]) / len(self.scores[-50:]))
-        # if str(episode)[-2:] == "00":  # much faster than episode % 100
         if episode % 5:
             pylab.plot(self.episodes, self.scores, 'b')
             pylab.plot(self.episodes, self.average, 'r')
@@ -125,13 +119,10 @@ class A2CAgent:
 
 
     def train(self):
-        max_steps = 200
         for e in range(self.EPISODES):
-            step = 0
             state = self.env.reset()
             done, score, SAVING = False, 0, ''
-            while step < max_steps:
-                step += 1
+            while not done:
                 # self.env.render()
                 # Actor picks an action
                 action = self.act(state)
@@ -154,7 +145,6 @@ class A2CAgent:
                     print("episode: {}/{}, score: {}, average: {:.2f} {}".format(e, self.EPISODES, score, average,
                                                                                  SAVING))
                     self.learn()
-                    step = max_steps
 
         # close environemnt when finish training
         self.env.game.close()
@@ -163,30 +153,23 @@ class A2CAgent:
         self.load(Actor_name, Critic_name)
         game = self.env.game
         for e in range(100):
-
-            self.env.game.new_episode()
-            state = game.get_state().screen_buffer
-            state = self.env.stack_frames(self.env.stacked_frames, state, True)
+            done = False
+            state = self.env.reset()
             state = np.reshape(state, [1, *self.state_size])
 
-            while not game.is_episode_finished():
+            while not done:
                 Qs = self.Actor.predict(state)
 
                 # Take the biggest Q value (= the best action)
                 choice = np.argmax(Qs)
-                action = self.env.possible_actions[int(choice)]
 
-                game.make_action(action)
-                done = game.is_episode_finished()
+                next_state, reward, done, _ = self.env.step(int(choice))
+                next_state = np.reshape(next_state, [1, *self.state_size])
+                state = next_state
 
                 if done:
-                    # print("episode: {}/{}, score: {}".format(e, self.EPISODES, score))
+                    print("episode: {}/{}, score: {}".format(e, self.EPISODES, score))
                     break
-                else:
-                    next_state = game.get_state().screen_buffer
-                    next_state = self.env.stack_frames(self.env.stacked_frames, next_state, False)
-                    next_state = np.reshape(next_state, [1, *self.state_size])
-                    state = next_state
 
             score = game.get_total_reward()
             print("episode: {}/{}, score: {}".format(e, 100, score))

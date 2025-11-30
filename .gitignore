@@ -4,6 +4,9 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.h5
+*/logs/*
+*_vizdoom.ini
 
 # C extensions
 *.so

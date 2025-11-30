@@ -98,6 +98,7 @@ class Agent(object):
             memStart = int(np.random.choice(range(self.memSize-batch_size-1)))
         miniBatch = self.memory[memStart:memStart+batch_size]
 
+        print(len(miniBatch))
         return np.array(miniBatch)
 
     def learn(self, batch_size, writer):

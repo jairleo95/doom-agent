@@ -9,9 +9,9 @@ def A2CModel(input_shape, action_space, lr):
     X_input = Input(input_shape)
     print("input_shape: ", input_shape)
 
-    X = Conv2D(32, 8, strides=(4, 4), padding="valid", activation="relu", input_shape=input_shape, data_format="channels_first")(X_input)
-    X = Conv2D(64, 4, strides=(2, 2), padding="valid", activation="relu", data_format="channels_first")(X)
-    X = Conv2D(128, 4, strides=(2, 2), padding="valid", activation="relu", data_format="channels_first")(X)
+    X = Conv2D(32, 8, strides=(4, 4), padding="valid", activation="relu", input_shape=input_shape, data_format="channels_last")(X_input)
+    X = Conv2D(64, 4, strides=(2, 2), padding="valid", activation="relu", data_format="channels_last")(X)
+    X = Conv2D(128, 4, strides=(2, 2), padding="valid", activation="relu", data_format="channels_last")(X)
     X = Flatten()(X)
 
     # X = Dense(512, activation="relu", kernel_initializer='he_uniform')(X)
