@@ -55,20 +55,17 @@ class DoomEnv():
 
         return num_actions, action_shape
 
-    def step(self, action):
-
-        next_state = self.get_image(self.get_state())
-        reward = self.game.make_action(self.possible_actions[action])
-        done = self.game.is_episode_finished()
-        info =""
-        return next_state, reward, done, info
-
-    def step(self, action, frame_per_action):
-        next_state = self.get_image(self.get_state())
+    def step(self, action, frame_per_action=4):
         self.game.set_action(self.possible_actions[action])
         self.game.advance_action(frame_per_action)
         reward = self.game.get_last_reward()
         done = self.game.is_episode_finished()
+        
+        if not done:
+            next_state = self.get_image(self.get_state())
+        else:
+            next_state = np.zeros(self.img_shape) # Return empty state if done
+
         info = ""
         return next_state, reward, done, info
 

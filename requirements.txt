@@ -1,0 +1,6 @@
+tensorflow
+vizdoom
+opencv-python
+gym
+numpy
+scikit-image
