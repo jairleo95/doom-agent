@@ -55,14 +55,14 @@ class DoomEnv():
         left = [1, 0, 0]
         right = [0, 1, 0]
         shoot = [0, 0, 1]
-        possible_actions = [left, right, shoot]
+        self.possible_actions = [left, right, shoot]
 
-        return possible_actions
+        return self.possible_actions
 
     def step(self, action):
 
         next_state = stack_frames(stacked_frames, self.game.get_state().screen_buffer, False)
-        reward = self.game.make_action(possible_actions[action])
+        reward = self.game.make_action(self.possible_actions[action])
         done = self.game.is_episode_finished()
         info =""
         return next_state, reward, done, info

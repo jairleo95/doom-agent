@@ -9,13 +9,19 @@ Reinforcement learning experiments for VizDoom (PPO, A2C, A3C, DQN variants, DDP
 - `src/doom_agent/wrappers/`: VizDoom environment wrappers (Gym-style and custom frame-stack wrappers).
 - `src/doom_agent/examples/`: example scripts (e.g., Stable-Baselines PPO on basic_gym).
 - `src/doom_agent/scenarios/`: VizDoom scenario configs and WAD assets used across experiments.
+- `src/doom_agent/algorithms/ppo_v4/`: PPO training using Stable-Baselines3 (no custom PPO code).
 
 ## Running code
 1) Install dependencies (adjust to your CUDA/CPU setup): `pip install -r requirements_tf_gpu.yaml`.
 2) Expose the source layout: `export PYTHONPATH="$(pwd)/src"`.
 3) Run an experiment, e.g.:
    - `python -m doom_agent.algorithms.ppo_v3.ppo_vizdoom_deadly_corridor`
+   - Evaluar PPO v3 entrenado: `python -m doom_agent.algorithms.ppo_v3.eval_deadly_corridor --model checkpoints/deadly_corridor/best.pth`
    - `python -m doom_agent.algorithms.ppo.ppo_vizdoom_basic`
    - `python -m doom_agent.algorithms.a2c.main`
+   - `python -m doom_agent.algorithms.ppo_v4.train_deadly_corridor` (uses Stable-Baselines3 PPO)
+   - `python -m doom_agent.algorithms.ppo_v4.train_defend_the_center` (SB3 PPO con curriculum simple)
+   - Evaluar PPO v4 defend_the_center: `python -m doom_agent.algorithms.ppo_v4.eval_defend_the_center --model checkpoints/defend_the_center/ppo_v4_defend_final.zip`
+   - Evaluar PPO v4 entrenado: `python -m doom_agent.algorithms.ppo_v4.eval_deadly_corridor --model checkpoints/deadly_corridor/ppo_v4_best.zip`
 
 Scenario paths are now resolved through `doom_agent.paths.scenario_path`, so experiments can be launched from the repository root without changing directories.

@@ -46,12 +46,12 @@ if __name__ == '__main__':
         # Random action
         action = random.choice(action_shape)
         # Get the rewards
-        reward, done = env.step(action)
+        next_state, reward, done, _ = env.step(action)
 
         if done:
             # We finished the episode
-            next_state = np.zeros(state.shape)
-            agent.remember(state, action, reward, next_state, done)
+            zero_state = np.zeros(state.shape)
+            agent.remember(state, action, reward, zero_state, done)
             # Start a new episode
             env.game.new_episode()
 
@@ -62,11 +62,10 @@ if __name__ == '__main__':
             state = env.stack_frames(env.stacked_frames, state, True)
 
         else:
-            next_state = env.game.get_state().screen_buffer
-            next_state = env.stack_frames(env.stacked_frames, next_state, False)
-            agent.remember(state, action, reward, next_state, done)
+            stacked_next = env.stack_frames(env.stacked_frames, next_state, False)
+            agent.remember(state, action, reward, stacked_next, done)
             # Our state is now the next_state
-            state = next_state
+            state = stacked_next
     print('\nDone initializing memory')
 
 if training:

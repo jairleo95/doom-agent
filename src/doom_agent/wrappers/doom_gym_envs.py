@@ -3,8 +3,13 @@ import typing as t
 import cv2
 import numpy as np
 import vizdoom
-from gym import Env
-from gym import spaces
+try:  # Gymnasium is the maintained Gym API.
+    import gymnasium as gym
+    from gymnasium import Env, spaces
+except ImportError as exc:  # pragma: no cover - make dependency explicit
+    raise ImportError(
+        "Gymnasium not installed. Install it with `pip install \"gymnasium==0.29.1\" \"shimmy==1.3.0\"`."
+    ) from exc
 from stable_baselines3.common import vec_env
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.ppo import ppo, policies
@@ -94,8 +99,17 @@ class DoomEnv(Env):
         pass
 
     def _get_frame(self, done: bool = False) -> Frame:
-        return self.frame_processor(
-            self.game.get_state().screen_buffer) if not done else self.empty_frame
+        if done:
+            return self.empty_frame
+
+        state = self.game.get_state()
+        if state is None or state.screen_buffer is None:
+            return self.empty_frame
+        # Some VizDoom states may return an empty buffer before the first action.
+        if getattr(state.screen_buffer, "size", 0) == 0:
+            return self.empty_frame
+
+        return self.frame_processor(state.screen_buffer)
 
 
 class DoomWithBots(DoomEnv):
