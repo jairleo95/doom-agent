@@ -10,18 +10,22 @@ import time
 
 import numpy as np
 from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import DummyVecEnv, VecTransposeImage
+from stable_baselines3.common.vec_env import DummyVecEnv, VecTransposeImage, VecFrameStack
 
-from doom_agent.algorithms.ppo_v4.envs import DoomCorridorEnv
+from doom_agent.algorithms.ppo_v4.envs import DoomCorridorEnv, deadly_corridor_actions
 
 
 def build_env(window_visible: bool, frame_skip: int, frame_size):
-    return VecTransposeImage(DummyVecEnv([lambda: DoomCorridorEnv(
+    env = DummyVecEnv([lambda: DoomCorridorEnv(
         scenario="deadly_corridor.cfg",
         frame_skip=frame_skip,
         frame_size=frame_size,
         window_visible=window_visible,
-    )]))
+        actions=deadly_corridor_actions(),
+    )])
+    env = VecFrameStack(env, n_stack=4, channels_order='last')
+    env = VecTransposeImage(env)
+    return env
 
 
 def run_eval(model_path: Path, episodes: int, render_window: bool, frame_skip: int, sleep_time: float, frame_size):

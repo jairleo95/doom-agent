@@ -12,7 +12,7 @@ from vizdoom import DoomGame, Mode, ScreenFormat, ScreenResolution
 from doom_agent.paths import scenario_path
 
 
-def default_actions() -> list[list[int]]:
+def deadly_corridor_actions() -> list[list[int]]:
     """Action list for deadly_corridor scenario."""
     # [MOVE_LEFT, MOVE_RIGHT, ATTACK, MOVE_FORWARD, MOVE_BACKWARD, TURN_LEFT, TURN_RIGHT]
     return [
@@ -93,6 +93,7 @@ class DoomCorridorEnv(gym.Env):
         self.action_space = gym.spaces.Discrete(len(self.actions))
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(h, w, 1), dtype=np.uint8)
         self.state = np.zeros((h, w, 1), dtype=np.uint8)
+        self.last_killcount = 0
 
     def step(self, action: int):
         reward = self.game.make_action(self.actions[action], self.frame_skip)
@@ -101,6 +102,14 @@ class DoomCorridorEnv(gym.Env):
         if not terminated:
             state = self.game.get_state()
             self.state = self.frame_processor(state.screen_buffer if state else None)
+            
+            # Reward Shaping: Kill Bonus
+            # available_game_variables = { KILLCOUNT AMMO2 HEALTH }
+            if state and len(state.game_variables) > 0:
+                killcount = state.game_variables[0]
+                if killcount > self.last_killcount:
+                    reward += (killcount - self.last_killcount) * 1.0
+                self.last_killcount = killcount
         else:
             self.state = np.zeros_like(self.state)
 
@@ -109,6 +118,7 @@ class DoomCorridorEnv(gym.Env):
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
         self.game.new_episode()
+        self.last_killcount = 0
         state = self.game.get_state()
         self.state = self.frame_processor(state.screen_buffer if state else None)
         return self.state, {}
