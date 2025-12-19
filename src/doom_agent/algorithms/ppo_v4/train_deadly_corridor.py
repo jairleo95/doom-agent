@@ -84,7 +84,7 @@ def linear_schedule(initial_value: float) -> Callable[[float], float]:
     return func
 
 
-from doom_agent.algorithms.ppo_v4.callbacks import VideoRecorderCallback
+from doom_agent.algorithms.ppo_v4.callbacks import VideoRecorderCallback, OnBestVideoCallback
 
 def main():
     parser = argparse.ArgumentParser()
@@ -151,11 +151,7 @@ def main():
         # Callback triggered on new best model
         on_best_callback = None
         if args.video_on_best:
-            # We wrap the recording in a lambda or just pass the record function? 
-            # EvalCallback expects a BaseCallback or function(locals, globals) -> None
-            def on_best_video_trigger(_locals, _globals):
-                video_callback.record_video(suffix=f"_best_{stage.name}")
-            on_best_callback = on_best_video_trigger
+            on_best_callback = OnBestVideoCallback(video_callback, suffix=f"_best_{stage.name}")
 
         eval_callback = EvalCallback(
             eval_env,

@@ -106,3 +106,16 @@ class VideoRecorderCallback(BaseCallback):
             if self.verbose > 0:
                 print(f"Saved video to {save_file}")
 
+
+class OnBestVideoCallback(BaseCallback):
+    """Wrap a VideoRecorderCallback to trigger a single recording when called."""
+
+    def __init__(self, video_callback: VideoRecorderCallback, suffix: str = ""):
+        super().__init__(verbose=0)
+        self.video_callback = video_callback
+        self.suffix = suffix
+
+    def _on_step(self) -> bool:
+        # Record once and return True to continue training
+        self.video_callback.record_video(suffix=self.suffix)
+        return True
