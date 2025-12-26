@@ -49,14 +49,63 @@ def build_envs(n_envs: int, stage: Stage, scenario_cfg: str, actions, window_vis
     env = VecTransposeImage(env)
     return env
 
+from sb3_contrib import RecurrentPPO
+from doom_agent.algorithms.ppo_v5.transformer import TransformerPPO, TransformerPolicy
+
+import json
+import csv
+import time
+from dataclasses import asdict
+
+def save_config(args, curriculum: Curriculum, log_dir: Path):
+    """Save run configuration to JSON."""
+    config = {
+        "args": vars(args),
+        "curriculum": {
+            "name": curriculum.name,
+            "scenario": curriculum.scenario,
+            "stages": [asdict(s) for s in curriculum.stages]
+        },
+        "timestamp": datetime.now().isoformat()
+    }
+    with open(log_dir / "config.json", "w") as f:
+        json.dump(config, f, indent=4)
+
+def update_manifest(run_id, args, curriculum_name, log_dir):
+    """Append run to a master CSV manifest."""
+    manifest_path = log_dir.parent.parent / "experiments_manifest.csv" # runs/experiments_manifest.csv
+    file_exists = manifest_path.exists()
+    
+    with open(manifest_path, "a", newline="") as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(["RunID", "Date", "Scenario", "Curriculum", "Policy", "LSTM", "Transformer", "LogDir"])
+        
+        policy_type = "Standard"
+        if args.lstm: policy_type = "LSTM"
+        elif args.transformer: policy_type = "Transformer"
+        
+        writer.writerow([
+            run_id, 
+            datetime.now().isoformat(), 
+            args.scenario, 
+            curriculum_name, 
+            policy_type,
+            args.lstm,
+            args.transformer,
+            str(log_dir)
+        ])
+
 def main():
     parser = argparse.ArgumentParser(description="PPO v5 Training with Sequential Curriculum")
     parser.add_argument("--scenario", type=str, required=True, choices=["deadly_corridor", "defend_the_center", "universal"], help="Scenario to train")
-    parser.add_argument("--resume", type=str, default=None, help="Path to resume (.zip). Overrides curriculum start if starting from stage 0.")
+    parser.add_argument("--resume", type=str, default=None, help="Path to resume (.zip).")
     parser.add_argument("--start-stage", type=int, default=0, help="Stage index to start from (0-based).")
     parser.add_argument("--video-freq", type=int, default=100_000, help="Video generation frequency")
-    parser.add_argument("--video-on-best", action="store_true", default=True, help="Record video on new best model") # Default true for v5
+    parser.add_argument("--video-on-best", action="store_true", default=True, help="Record video on new best model")
     parser.add_argument("--n-envs", type=int, default=12, help="Number of training environments")
+    parser.add_argument("--lstm", action="store_true", help="Use RecurrentPPO (LSTM)")
+    parser.add_argument("--transformer", action="store_true", help="Use TransformerPPO (Attention)")
     args = parser.parse_args()
 
     # Select Curriculum
@@ -75,6 +124,11 @@ def main():
     # Setup Paths
     base_dir = Path(__file__).resolve().parent
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
+    if args.lstm:
+        run_id += "_lstm"
+    elif args.transformer:
+        run_id += "_transformer"
+    
     log_dir = base_dir / "runs" / args.scenario / run_id
     ckpt_dir = base_dir / "checkpoints" / args.scenario / run_id
     video_dir = ckpt_dir / "videos"
@@ -83,10 +137,29 @@ def main():
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     video_dir.mkdir(parents=True, exist_ok=True)
 
+    # Save Config & Update Manifest
+    save_config(args, curriculum, log_dir)
+    update_manifest(run_id, args, curriculum.name, log_dir)
+
     print(f"Starting PPO v5 Training: {curriculum.name}")
     print(f"Total Stages: {len(curriculum.stages)}")
+    
+    policy_name = "PPO (Standard)"
+    if args.lstm: policy_name = "RecurrentPPO (LSTM)"
+    if args.transformer: policy_name = "TransformerPPO (Attention)"
+    print(f"Policy Type: {policy_name}")
 
     last_model_path = args.resume
+    
+    AlgorithmClass = PPO
+    policy_type = "CnnPolicy"
+    
+    if args.lstm:
+        AlgorithmClass = RecurrentPPO
+        policy_type = "CnnLstmPolicy"
+    elif args.transformer:
+        AlgorithmClass = TransformerPPO
+        policy_type = "CnnPolicy" 
 
     for idx, stage in enumerate(curriculum.stages):
         if idx < args.start_stage:
@@ -96,6 +169,8 @@ def main():
         print(f"\n=== Running Stage {idx}: {stage.name} ===")
         print(f"Config: Skill={stage.doom_skill}, Reward={stage.living_reward}, HP_Pen={stage.health_penalty}, Ammo_Pen={stage.ammo_penalty}")
         
+        stage_start_time = time.time()
+
         # Build Envs
         train_env = build_envs(args.n_envs, stage, curriculum.scenario, actions, is_eval=False)
         eval_env = build_envs(1, stage, curriculum.scenario, actions, is_eval=True)
@@ -103,8 +178,8 @@ def main():
         # Initialize or Load Model
         if idx == 0 and last_model_path is None:
             print("Initializing NEW model...")
-            model = PPO(
-                policy="CnnPolicy",
+            model = AlgorithmClass(
+                policy=policy_type,
                 env=train_env,
                 n_steps=1024,
                 batch_size=512,
@@ -114,31 +189,20 @@ def main():
                 clip_range=0.1,
                 ent_coef=0.01,
                 vf_coef=0.5,
-                n_epochs=4,
                 tensorboard_log=str(log_dir),
                 verbose=1,
             )
         else:
             # WARM START
             load_path = last_model_path
-            # If we are starting from stage > 0 but have no resume path, implies we should have kept previous stage model in memory?
-            # Or we expect to load from file. 
-            # In this loop, 'model' variable holds the object. 
-            # BUT we need to set the NEW env.
             
             if 'model' in locals() and model is not None:
                 print("Continuing with current model compliant with new stage...")
                 model.set_env(train_env)
-                # Ensure learning rate schedule is reset? 
-                # Ideally, we want schedule to restart or continue? 
-                # Usually schedule depends on total_timesteps of learn() call.
-                # So calling learn() again resets progress_remaining for THAT call. 
-                # Perfect.
             elif load_path:
                 print(f"Loading Warm-Start model from: {load_path}")
-                model = PPO.load(load_path, env=train_env, device="auto", tensorboard_log=str(log_dir))
+                model = AlgorithmClass.load(load_path, env=train_env, device="auto", tensorboard_log=str(log_dir))
             else:
-                # Should not happen if logic is correct
                 print("Error: Starting mid-curriculum without a model!")
                 return
         
@@ -185,11 +249,26 @@ def main():
             reset_num_timesteps=False 
         )
         
+        duration = time.time() - stage_start_time
+        
         # Save Last Model for Next Stage
         last_model_path = str(ckpt_dir / f"v5_{stage.name}_final.zip")
         model.save(last_model_path)
         print(f"Stage {stage.name} Complete. Saved to {last_model_path}")
         
+        # Log Stage Results
+        stage_results = {
+            "stage": stage.name,
+            "duration_seconds": duration,
+            "timesteps": stage.timesteps,
+            "final_model": last_model_path,
+            # We could try to extract mean reward from eval_callback if possible, 
+            # but it writes to best_model. We can read logs or just trust TB.
+            # Simple logging for now.
+        }
+        with open(log_dir / f"result_{stage.name}.json", "w") as f:
+            json.dump(stage_results, f, indent=4)
+
         train_env.close()
         eval_env.close()
 

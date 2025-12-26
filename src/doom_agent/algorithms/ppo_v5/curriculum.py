@@ -120,6 +120,39 @@ GRAND_CURRICULUM = Curriculum(
             frame_skip=2,
             health_penalty=0.1,
             ammo_penalty=0.01
+        ),
+        # Phase 4: Ultimate Survival (Take Cover)
+        Stage(
+            name="phase4_cover",
+            scenario="take_cover.cfg",
+            timesteps=1_000_000,
+            doom_skill=5,
+            living_reward=0.1, # Survival is the goal, so reward living!
+            frame_skip=2,
+            health_penalty=0.1,
+            ammo_penalty=0.0 # Just survive, fire at will
+        ),
+        # Phase 5: Cognitive Navigation (My Way Home)
+        Stage(
+            name="phase5_maze",
+            scenario="my_way_home.cfg",
+            timesteps=2_000_000,
+            doom_skill=5,
+            living_reward=-0.01, # Rush to find the vest
+            frame_skip=4,
+            health_penalty=0.0,
+            ammo_penalty=0.0
+        ),
+        # Phase 6: The Ultimate Challenge (Deathmatch)
+        Stage(
+            name="phase6_deathmatch",
+            scenario="deathmatch.cfg",
+            timesteps=4_000_000,
+            doom_skill=5,
+            living_reward=0.0,
+            frame_skip=2,
+            health_penalty=0.1,
+            ammo_penalty=0.02
         )
     ]
 )
