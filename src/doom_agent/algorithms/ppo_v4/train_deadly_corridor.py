@@ -43,6 +43,8 @@ def make_env_fn(stage: Stage, window_visible: bool = False):
             living_reward=stage.living_reward,
             window_visible=window_visible,
             actions=deadly_corridor_actions(),
+            health_penalty=0.1,  # Penalizar daño (crucial en corridor)
+            ammo_penalty=0.01,   # Penalizar spam (leve)
         )
     return _init
 

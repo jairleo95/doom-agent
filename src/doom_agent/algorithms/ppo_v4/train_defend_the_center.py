@@ -46,6 +46,8 @@ def make_env_fn(stage: Stage, window_visible: bool = False):
             living_reward=stage.living_reward,
             window_visible=window_visible,
             actions=defend_actions(),  # action set específico del escenario
+            health_penalty=0.1,  # Penalizar daño recibido
+            ammo_penalty=0.05,   # Penalizar spam de disparos
         )
     return _init
 
@@ -75,7 +77,7 @@ def linear_schedule(initial_value: float) -> Callable[[float], float]:
     return func
 
 
-from doom_agent.algorithms.ppo_v4.callbacks import VideoRecorderCallback
+from doom_agent.algorithms.ppo_v4.callbacks import VideoRecorderCallback, OnBestVideoCallback
 
 def main():
     parser = argparse.ArgumentParser()
@@ -139,9 +141,7 @@ def main():
         
         on_best_callback = None
         if args.video_on_best:
-            def on_best_video_trigger(_locals, _globals):
-                video_callback.record_video(suffix=f"_best_{stage.name}")
-            on_best_callback = on_best_video_trigger
+            on_best_callback = OnBestVideoCallback(video_callback, suffix=f"_best_{stage.name}")
 
         eval_callback = EvalCallback(
             eval_env,
