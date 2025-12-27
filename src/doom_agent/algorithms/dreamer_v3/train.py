@@ -18,6 +18,10 @@ from dataclasses import asdict
 
 import torch
 
+# Disable audio at the OS level for headless environments
+os.environ['SDL_AUDIODRIVER'] = 'dummy'
+os.environ['ALSOFT_DRIVERS'] = 'null'
+
 from doom_agent.algorithms.dreamer_v3.agent import DreamerV3Agent
 from doom_agent.algorithms.dreamer_v3.doom_envs import (
     DoomDreamerEnv, deathmatch_actions, deadly_corridor_actions, defend_actions, universal_actions
@@ -63,6 +67,21 @@ def save_config(args, curriculum: Curriculum, log_dir: Path):
     }
     with open(log_dir / "config.json", "w") as f:
         json.dump(config, f, indent=4)
+
+def make_env(idx, scenario_cfg, actions, stage_config, visualize=False):
+    """Top-level factory for pickling reliability."""
+    return DoomDreamerEnv(
+        scenario=scenario_cfg,
+        actions=actions,
+        frame_skip=stage_config.frame_skip,
+        window_visible=visualize if (visualize and idx == 0) else False,
+        doom_skill=stage_config.doom_skill,
+        living_reward=stage_config.living_reward,
+        health_penalty=stage_config.health_penalty,
+        ammo_penalty=stage_config.ammo_penalty,
+        frag_bonus=stage_config.frag_bonus,
+        obs_shape=(64, 64, 1)
+    )
 
 def update_manifest(run_id, args, curriculum_name, log_dir):
     """Append run to a master CSV manifest."""
@@ -185,29 +204,15 @@ def main():
         # Envs for Stage
         scenario_cfg = stage.scenario or curriculum.scenario
         
-        def make_env_fn(idx):
-             return DoomDreamerEnv(
-                 scenario=scenario_cfg,
-                 actions=actions,
-                 frame_skip=stage.frame_skip,
-                 window_visible=args.visualize if (args.visualize and idx == 0) else False,
-                 doom_skill=stage.doom_skill,
-                 living_reward=stage.living_reward,
-                 health_penalty=stage.health_penalty,
-                 ammo_penalty=stage.ammo_penalty,
-                 frag_bonus=stage.frag_bonus,
-                 obs_shape=(64, 64, 1)
-             )
-
         if args.n_envs > 1:
             print(f"Initializing {args.n_envs} parallel environments...")
             from nm512_dreamer.parallel import Parallel
             from functools import partial
-            train_envs = [Parallel(partial(make_env_fn, i), "process") for i in range(args.n_envs)]
+            train_envs = [Parallel(partial(make_env, i, scenario_cfg, actions, stage, args.visualize), "process") for i in range(args.n_envs)]
         else:
             print("Initializing single environment...")
             from nm512_dreamer.parallel import Damy
-            train_envs = [Damy(make_env_fn(0))]
+            train_envs = [Damy(make_env(0, scenario_cfg, actions, stage, args.visualize))]
         
         eval_env = DoomDreamerEnv(
             scenario=scenario_cfg,
