@@ -3,11 +3,13 @@
 # Use this on RunPod/Cloud instances after running setup_cloud.sh
 
 export PYTHONPATH=$(pwd)/src
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
 python src/doom_agent/algorithms/dreamer_v3/train.py \
   --scenario deathmatch \
-  --n-envs 64 \
+  --n-envs 32 \
   --device cuda \
-  --batch-size 512 \
+  --batch-size 256 \
   --train-every 10 \
-  --train-steps 10 \
-  --prefill-steps 20000
+  --train-steps 8 \
+  --prefill-steps 10000
