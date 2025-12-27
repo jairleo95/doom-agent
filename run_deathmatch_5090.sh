@@ -7,9 +7,9 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 python src/doom_agent/algorithms/dreamer_v3/train.py \
   --scenario deathmatch \
-  --n-envs 24 \
+  --n-envs 32 \
   --device cuda \
   --batch-size 128 \
-  --train-every 5 \
-  --train-steps 1 \
+  --train-every 256 \
+  --train-steps 8 \
   --prefill-steps 5000
