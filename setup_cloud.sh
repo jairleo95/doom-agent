@@ -36,16 +36,12 @@ sudo apt-get install -y \
     libgl1-mesa-dev
 
 # 2. Clone Dependencies
-echo "Ensuring nm512_dreamer is present..."
+echo "Cloning/Updating nm512_dreamer repository..."
 DREAMER_PATH="src/doom_agent/algorithms/dreamer_v3/nm512_dreamer"
-if [ ! -d "$DREAMER_PATH" ]; then
-    echo "Cloning nm512_dreamer repository..."
-    git clone https://github.com/NM512/dreamerv3-torch "$DREAMER_PATH"
-    # Remove __init__.py if it exists to allow the project's flexible import structure
-    rm -f "$DREAMER_PATH/__init__.py"
-else
-    echo "nm512_dreamer already exists."
-fi
+rm -rf "$DREAMER_PATH"
+git clone https://github.com/NM512/dreamerv3-torch "$DREAMER_PATH"
+# Remove __init__.py if it exists to allow the project's flexible import structure
+rm -f "$DREAMER_PATH/__init__.py"
 
 # 3. Install Python Dependencies
 echo "Installing Python Packages (pip)..."
