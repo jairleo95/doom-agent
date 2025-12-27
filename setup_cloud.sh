@@ -48,7 +48,7 @@ fi
 # 3. Setup Project Paths
 echo "Exporting PYTHONPATH..."
 export PROJECT_ROOT=$(pwd)
-export PYTHONPATH=$PROJECT_ROOT/src:$PROJECT_ROOT/src/doom_agent/algorithms/dreamer_v3/nm512_dreamer
+export PYTHONPATH=$PROJECT_ROOT/src:$PROJECT_ROOT/src/doom_agent/algorithms/dreamer_v3
 echo "export PYTHONPATH=$PYTHONPATH" >> ~/.bashrc
 
 # 4. Verify Installation
