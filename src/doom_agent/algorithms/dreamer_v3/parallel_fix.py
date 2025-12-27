@@ -164,8 +164,6 @@ class ProcessPipeWorker:
             function = cloudpickle.loads(function)
             [fn() for fn in initializers]
             while True:
-                if not pipe.poll(0.1):
-                    continue 
                 message, callid, payload = pipe.recv()
                 if message == Message.OK:
                     pipe.send((Message.RESULT, callid, True))

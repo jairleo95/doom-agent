@@ -119,7 +119,7 @@ def main():
     # Dreamer specific
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--visualize", action="store_true", help="Show VizDoom game window during training")
-    parser.add_argument("--batch-size", type=int, default=16, help="Batch size")
+    parser.add_argument("--batch-size", type=int, default=128, help="Batch size")
     parser.add_argument("--batch-length", type=int, default=50, help="Sequence length (Batch Length)")
     parser.add_argument("--buffer-capacity", type=int, default=1_000_000, help="Replay buffer capacity")
     parser.add_argument("--train-every", type=int, default=5, help="Train every N steps")
@@ -161,6 +161,9 @@ def main():
     print(f"Starting Dreamer V3 Training: {curriculum.name}")
     print(f"Total Stages: {len(curriculum.stages)}")
     print(f"Device: {args.device}")
+    
+    if args.device == "cuda":
+        torch.backends.cudnn.benchmark = True
     
     # Agent Config
     config = {
@@ -296,6 +299,8 @@ def main():
         last_log_time = time.time()
         last_log_step = global_step
         
+        train_counter = 0
+        
         while stage_step < stage.timesteps:
             # Action (batched)
             obs_batch = np.stack(obs_list)
@@ -355,9 +360,13 @@ def main():
                 last_log_step = global_step
             
             # Train
-            should_train = (global_step % args.train_every == 0) and (len(replay_buffer) > config['batch_size'] * config['batch_length'])
-            if should_train:
-                for _ in range(args.train_steps):
+            train_counter += args.n_envs
+            if train_counter >= args.train_every and len(replay_buffer) > args.batch_size * args.batch_length:
+                # Calculate how many batches to run based on current accumulation
+                num_batches = (train_counter // args.train_every) * args.train_steps
+                train_counter = train_counter % args.train_every
+                
+                for _ in range(num_batches):
                     batch = replay_buffer.sample(args.batch_size)
                     metrics = agent.train_step(batch)
                     metrics_callback.log_training(global_step, **metrics)
