@@ -143,6 +143,7 @@ class DoomDreamerEnv:
         self.game = DoomGame()
         self.game.load_config(scenario_path(scenario))
         self.game.set_mode(Mode.PLAYER)
+        self.game.set_sound_enabled(False)
         
         if doom_skill is not None:
             self.game.set_doom_skill(int(doom_skill))

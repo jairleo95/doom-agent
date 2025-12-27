@@ -23,15 +23,9 @@ try:
     import tools
     import dreamer
     import exploration as expl
-except ImportError as e:
-    print(f"\n--- DEBUG IMPORT ERROR ---")
-    print(f"Error: {e}")
-    print(f"NM512 Path: {nm512_path}")
-    print(f"Path exists: {nm512_path.exists()}")
-    if nm512_path.exists():
-        print(f"Found files: {[f.name for f in nm512_path.glob('*.py')]}")
-    print(f"sys.path: {sys.path}")
-    print(f"---------------------------\n")
+except ImportError:
+    print("Error: Could not import NM512 Dreamer implementation.")
+    print(f"Make sure {nm512_path} exists and contains tools.py, dreamer.py, etc.")
     raise
 
 

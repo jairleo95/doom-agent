@@ -51,10 +51,13 @@ export PROJECT_ROOT=$(pwd)
 export PYTHONPATH=$PROJECT_ROOT/src
 echo "export PYTHONPATH=$PYTHONPATH" >> ~/.bashrc
 
-# 4. Verify Installation
-echo "Verifying Installation..."
+# 4. Verify Installation & Setup Assets
+echo "Verifying Installation and Setting up Assets..."
 python3 -c "import torch; print(f'PyTorch available: {torch.cuda.is_available()} (Device: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"None\"})')"
 python3 -c "import vizdoom; print(f'VizDoom version: {vizdoom.__version__}')"
+
+echo "Copying deathmatch.wad from vizdoom package..."
+python3 -c "import vizdoom; import os; import shutil; src=os.path.join(os.path.dirname(vizdoom.__file__), 'scenarios', 'deathmatch.wad'); dst='src/doom_agent/scenarios/deathmatch.wad'; shutil.copy(src, dst) if os.path.exists(src) else print('Warning: deathmatch.wad not found in vizdoom package')"
 
 echo "--- Setup Complete! ---"
 echo ""
