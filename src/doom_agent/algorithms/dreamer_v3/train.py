@@ -296,6 +296,7 @@ def main():
         env_episode_lengths = [0] * args.n_envs
         env_episode_start_times = [time.time()] * args.n_envs
         
+        last_log_time = time.time()
         last_log_step = global_step
         last_save_step = global_step
         
