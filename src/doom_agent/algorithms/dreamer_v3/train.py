@@ -54,6 +54,15 @@ def get_action_set(scenario):
     else:
         return universal_actions()
 
+def format_time(seconds):
+    """Format seconds to HH:MM:SS."""
+    if seconds is None or seconds < 0:
+        return "N/A"
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    seconds = int(seconds % 60)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
 def save_config(args, curriculum: Curriculum, log_dir: Path):
     """Save run configuration to JSON."""
     config = {
@@ -193,6 +202,8 @@ def main():
     )
     
     
+    # Calculate total curriculum steps for ETA
+    total_curriculum_steps = sum(s.timesteps for s in curriculum.stages)
     global_step = 0
     
     for idx, stage in enumerate(curriculum.stages):
@@ -357,7 +368,12 @@ def main():
                 step_diff = global_step - last_log_step
                 fps = step_diff / time_diff if time_diff > 0 else 0
                 
-                print(f"[{stage.name}] Step {stage_step}/{stage.timesteps} (Global {global_step}) - FPS: {fps:.2f}", flush=True)
+                # Calculate ETA
+                remaining_curriculum_steps = total_curriculum_steps - global_step
+                eta_seconds = remaining_curriculum_steps / fps if fps > 0 else None
+                eta_str = format_time(eta_seconds)
+                
+                print(f"[{stage.name}] Step {stage_step}/{stage.timesteps} (Global {global_step}/{total_curriculum_steps}) - FPS: {fps:.2f} - ETA: {eta_str}", flush=True)
                 metrics_callback.log_training(global_step, fps=fps)
                 
                 last_log_time = current_time
