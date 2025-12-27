@@ -9,7 +9,7 @@ python src/doom_agent/algorithms/dreamer_v3/train.py \
   --scenario deathmatch \
   --n-envs 24 \
   --device cuda \
-  --batch-size 512 \
-  --train-every 1024 \
+  --batch-size 256 \
+  --train-every 512 \
   --train-steps 1 \
   --prefill-steps 15000

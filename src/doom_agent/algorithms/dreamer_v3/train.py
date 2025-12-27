@@ -315,6 +315,11 @@ def main():
         train_counter = 0
         first_train = True
         
+        # Stable ETA tracking
+        last_eval_time = time.time()
+        last_eval_step = global_step
+        stable_eta_str = "N/A"
+        
         print(f"Main training loop started. Logging every 100 steps.")
         while stage_step < stage.timesteps:
             # Action (batched)
@@ -347,6 +352,20 @@ def main():
                     # Evaluation (on main env / eval env)
                     if eval_callback.should_evaluate(episode_count):
                         eval_results = eval_callback.evaluate(global_step)
+                        
+                        # Calculate stable FPS and ETA based on this lap
+                        curr_time = time.time()
+                        eval_lap_time = curr_time - last_eval_time
+                        eval_lap_steps = global_step - last_eval_step
+                        
+                        if eval_lap_time > 0:
+                            stable_fps = eval_lap_steps / eval_lap_time
+                            remaining_curriculum_steps = total_curriculum_steps - global_step
+                            stable_eta_seconds = remaining_curriculum_steps / stable_fps if stable_fps > 0 else None
+                            stable_eta_str = format_time(stable_eta_seconds)
+                        
+                        last_eval_time = curr_time
+                        last_eval_step = global_step
                         metrics_callback.log_training(global_step, 
                                                      eval_mean_reward=eval_results['mean_reward'],
                                                      eval_mean_length=eval_results['mean_length'])
@@ -369,11 +388,10 @@ def main():
                 fps = step_diff / time_diff if time_diff > 0 else 0
                 
                 # Calculate ETA
-                remaining_curriculum_steps = total_curriculum_steps - global_step
-                eta_seconds = remaining_curriculum_steps / fps if fps > 0 else None
-                eta_str = format_time(eta_seconds)
+                # No need to recalculate eta_str here, we use stable_eta_str
                 
-                print(f"[{stage.name}] Step {stage_step}/{stage.timesteps} (Global {global_step}/{total_curriculum_steps}) - FPS: {fps:.2f} - ETA: {eta_str}", flush=True)
+                # Use the stable ETA from the last evaluation
+                print(f"[{stage.name}] Step {stage_step}/{stage.timesteps} (Global {global_step}/{total_curriculum_steps}) - FPS: {fps:.2f} - ETA: {stable_eta_str}", flush=True)
                 metrics_callback.log_training(global_step, fps=fps)
                 
                 last_log_time = current_time
