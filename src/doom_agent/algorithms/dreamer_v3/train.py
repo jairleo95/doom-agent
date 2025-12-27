@@ -206,12 +206,12 @@ def main():
         
         if args.n_envs > 1:
             print(f"Initializing {args.n_envs} parallel environments...")
-            from nm512_dreamer.parallel import Parallel
+            from doom_agent.algorithms.dreamer_v3.parallel_fix import Parallel
             from functools import partial
             train_envs = [Parallel(partial(make_env, i, scenario_cfg, actions, stage, args.visualize), "process") for i in range(args.n_envs)]
         else:
             print("Initializing single environment...")
-            from nm512_dreamer.parallel import Damy
+            from doom_agent.algorithms.dreamer_v3.parallel_fix import Damy
             train_envs = [Damy(make_env(0, scenario_cfg, actions, stage, args.visualize))]
         
         eval_env = DoomDreamerEnv(
