@@ -174,7 +174,7 @@ def main():
         'action_dim': len(actions),
         'num_actions': len(actions),
         'compile': False, # Disable compilation for immediate feedback
-        'precision': 32,
+        'precision': 16,  # 16-bit Mixed Precision for massive performance on 5090
     }
     
     # Initialize Agent
@@ -188,7 +188,8 @@ def main():
     # Replay Buffer
     replay_buffer = ReplayBuffer(
         capacity=args.buffer_capacity,
-        sequence_length=config['batch_length']
+        sequence_length=config['batch_length'],
+        obs_shape=config['obs_shape']
     )
     
     
