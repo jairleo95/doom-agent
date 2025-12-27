@@ -7,6 +7,7 @@ Stores transitions and samples sequences for training the world model.
 from collections import deque
 import numpy as np
 import torch
+import os
 
 
 class ReplayBuffer:
@@ -22,13 +23,14 @@ class ReplayBuffer:
         self.sequence_length = sequence_length
         self.buffer = deque(maxlen=capacity)
         
-    def add(self, observation, action, reward, done):
+    def add(self, observation, action, reward, done, is_first):
         """Add a single transition."""
         self.buffer.append({
             'obs': observation,
             'action': action,
             'reward': reward,
-            'done': done
+            'done': done,
+            'is_first': is_first
         })
     
     def sample(self, batch_size):
@@ -44,7 +46,8 @@ class ReplayBuffer:
                 'obs': [],
                 'action': [],
                 'reward': [],
-                'done': []
+                'done': [],
+                'is_first': []
             }
             
             for i in range(self.sequence_length):
@@ -53,6 +56,7 @@ class ReplayBuffer:
                 sequence['action'].append(transition['action'])
                 sequence['reward'].append(transition['reward'])
                 sequence['done'].append(transition['done'])
+                sequence['is_first'].append(transition['is_first'])
             
             sequences.append(sequence)
         
@@ -61,10 +65,12 @@ class ReplayBuffer:
             'obs': torch.FloatTensor(np.array([s['obs'] for s in sequences])),
             'action': torch.LongTensor(np.array([s['action'] for s in sequences])),
             'reward': torch.FloatTensor(np.array([s['reward'] for s in sequences])),
-            'done': torch.FloatTensor(np.array([s['done'] for s in sequences]))
+            'done': torch.FloatTensor(np.array([s['done'] for s in sequences])),
+            'is_first': torch.FloatTensor(np.array([s['is_first'] for s in sequences]))
         }
         
         return batch
     
     def __len__(self):
         return len(self.buffer)
+

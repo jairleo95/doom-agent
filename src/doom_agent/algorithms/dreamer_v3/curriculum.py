@@ -13,7 +13,7 @@ from typing import List, Optional
 class Stage:
     """Single training stage configuration."""
     name: str  # Name of the stage
-    episodes: int  # Number of episodes to train in this stage
+    timesteps: int  # Number of steps to train in this stage
     doom_skill: int  # Doom difficulty level (1-5)
     living_reward: float  # Reward per step
     frame_skip: int = 4
@@ -45,7 +45,7 @@ DEATHMATCH_CURRICULUM = Curriculum(
     stages=[
         Stage(
             name="skill2_warmup",
-            episodes=500,
+            timesteps=500_000, # Approx 500 eps
             doom_skill=2,
             living_reward=0.0,
             frame_skip=4,
@@ -55,7 +55,7 @@ DEATHMATCH_CURRICULUM = Curriculum(
         ),
         Stage(
             name="skill3_intermediate",
-            episodes=1000,
+            timesteps=1_000_000,
             doom_skill=3,
             living_reward=0.0,
             frame_skip=4,
@@ -65,7 +65,7 @@ DEATHMATCH_CURRICULUM = Curriculum(
         ),
         Stage(
             name="skill4_advanced",
-            episodes=1500,
+            timesteps=2_000_000,
             doom_skill=4,
             living_reward=0.0,
             frame_skip=3,
@@ -75,7 +75,7 @@ DEATHMATCH_CURRICULUM = Curriculum(
         ),
         Stage(
             name="skill5_expert",
-            episodes=2000,
+            timesteps=4_000_000,
             doom_skill=5,
             living_reward=0.0,
             frame_skip=2,
@@ -93,7 +93,7 @@ DEADLY_CORRIDOR_CURRICULUM = Curriculum(
     stages=[
         Stage(
             name="skill2_warmup",
-            episodes=300,
+            timesteps=500_000,
             doom_skill=2,
             living_reward=-0.01,
             frame_skip=3,
@@ -102,7 +102,7 @@ DEADLY_CORRIDOR_CURRICULUM = Curriculum(
         ),
         Stage(
             name="skill4_mid",
-            episodes=700,
+            timesteps=1_000_000,
             doom_skill=4,
             living_reward=0.0,
             frame_skip=3,
@@ -111,7 +111,7 @@ DEADLY_CORRIDOR_CURRICULUM = Curriculum(
         ),
         Stage(
             name="skill5_target",
-            episodes=1000,
+            timesteps=2_000_000,
             doom_skill=5,
             living_reward=0.0,
             frame_skip=2,
@@ -128,7 +128,7 @@ DEFEND_CENTER_CURRICULUM = Curriculum(
     stages=[
         Stage(
             name="skill2_warmup",
-            episodes=300,
+            timesteps=500_000,
             doom_skill=2,
             living_reward=-0.005,
             frame_skip=3,
@@ -137,7 +137,7 @@ DEFEND_CENTER_CURRICULUM = Curriculum(
         ),
         Stage(
             name="skill4_target",
-            episodes=700,
+            timesteps=1_000_000,
             doom_skill=4,
             living_reward=0.0,
             frame_skip=2,
@@ -156,7 +156,7 @@ GRAND_CURRICULUM = Curriculum(
         Stage(
             name="phase1_basic",
             scenario="basic.cfg",
-            episodes=200,
+            timesteps=200_000,
             doom_skill=5,
             living_reward=-0.01,
             frame_skip=4,
@@ -167,7 +167,7 @@ GRAND_CURRICULUM = Curriculum(
         Stage(
             name="phase2_defend",
             scenario="defend_the_center.cfg",
-            episodes=500,
+            timesteps=500_000,
             doom_skill=3,
             living_reward=0.0,
             frame_skip=3,
@@ -178,7 +178,7 @@ GRAND_CURRICULUM = Curriculum(
         Stage(
             name="phase3_corridor",
             scenario="deadly_corridor.cfg",
-            episodes=1000,
+            timesteps=1_000_000,
             doom_skill=4,
             living_reward=0.0,
             frame_skip=2,
@@ -189,7 +189,7 @@ GRAND_CURRICULUM = Curriculum(
         Stage(
             name="phase4_deathmatch",
             scenario="deathmatch.cfg",
-            episodes=2000,
+            timesteps=4_000_000,
             doom_skill=5,
             living_reward=0.0,
             frame_skip=2,

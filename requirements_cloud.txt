@@ -1,0 +1,26 @@
+
+# Core dependencies (Pinned to 2.8.0 as requested)
+torch==2.8.0
+torchvision
+torchaudio
+numpy
+
+# Environment
+vizdoom
+gymnasium
+gym
+opencv-python
+
+# Training utilities
+tensorboard
+imageio
+imageio-ffmpeg
+ruamel.yaml
+cloudpickle
+matplotlib
+stable-baselines3
+sb3-contrib
+
+# Progress bars and logging
+tqdm
+pandas

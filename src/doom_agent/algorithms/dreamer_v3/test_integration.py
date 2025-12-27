@@ -5,6 +5,7 @@ from pathlib import Path
 # Add project root to sys.path
 project_root = Path(__file__).resolve().parents[4] # Adjust levels to reach src/
 sys.path.append(str(project_root / "src"))
+sys.path.append(str(Path(__file__).resolve().parent)) # Added this line
 
 from doom_agent.algorithms.dreamer_v3.agent import DreamerV3Agent
 import numpy as np

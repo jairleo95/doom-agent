@@ -5,69 +5,86 @@ Provides callbacks for video recording, checkpointing, evaluation, and metrics l
 """
 
 import os
-from doom_agent.algorithms.dreamer_v3.doom_envs import DoomDreamerEnv
+import json
+import imageio
 import numpy as np
+
+from doom_agent.algorithms.dreamer_v3.doom_envs import DoomDreamerEnv
 
 
 class VideoRecorderCallback:
-    """Records episode videos as GIFs."""
-    
+    """
+    Registra episodios en GIF, inspirado en la implementación de PPO v5.
+    Se dispara por frecuencia de pasos (global_step) y no por episodio.
+    """
+
     def __init__(
         self,
         eval_env,
         agent,
-        save_path='videos',
-        name_prefix='dreamer_v3',
-        record_freq=100,  # Record every N episodes
-        n_episodes=1
+        save_path: str = "videos",
+        name_prefix: str = "dreamer_v3",
+        render_freq: int = 100_000,  # pasos globales entre grabaciones
+        n_eval_episodes: int = 1,
+        deterministic: bool = True,
+        fps: int = 35,
     ):
         """
         Args:
-            eval_env: Environment to record
-            agent: DreamerV3Agent instance
-            save_path: Directory to save videos
-            name_prefix: Prefix for video filenames
-            record_freq: Record every N episodes
-            n_episodes: Number of episodes to record
+            eval_env: Environment to grab frames from.
+            agent: DreamerV3Agent instance.
+            save_path: Directory to save videos.
+            name_prefix: Prefix for video filenames.
+            render_freq: Steps between recordings (use 0/None to disable).
+            n_eval_episodes: Episodes to record per trigger.
+            deterministic: Whether to use deterministic actions.
+            fps: Frames per second in the saved GIF.
         """
         self.eval_env = eval_env
         self.agent = agent
         self.save_path = save_path
         self.name_prefix = name_prefix
-        self.record_freq = record_freq
-        self.n_episodes = n_episodes
-        
+        self.render_freq = render_freq
+        self.n_eval_episodes = n_eval_episodes
+        self.deterministic = deterministic
+        self.fps = fps
+
         os.makedirs(save_path, exist_ok=True)
-    
-    def should_record(self, episode):
-        """Check if should record this episode."""
-        return self.record_freq > 0 and episode % self.record_freq == 0
-    
-    def record_video(self, episode):
-        """Record video of agent playing."""
+
+    def should_record(self, global_step: int) -> bool:
+        return self.render_freq and self.render_freq > 0 and global_step % self.render_freq == 0
+
+    def _obs_to_frame(self, obs: np.ndarray) -> np.ndarray:
+        # obs puede venir como (H, W, 1) float o uint8; normalizamos a uint8 HxW
+        if obs is None:
+            return np.zeros((64, 64), dtype=np.uint8)
+        frame = obs
+        if frame.ndim == 4:  # batch dim
+            frame = frame[0]
+        if frame.ndim == 3 and frame.shape[-1] == 1:
+            frame = frame[..., 0]
+        if frame.max() <= 1.0:
+            frame = (frame * 255).astype(np.uint8)
+        else:
+            frame = frame.astype(np.uint8)
+        return frame
+
+    def record_video(self, suffix: str):
         frames = []
-        
-        for _ in range(self.n_episodes):
+        for _ in range(self.n_eval_episodes):
             obs = self.eval_env.reset()
             self.agent.reset_state()
             done = False
-            
+
             while not done:
-                # Convert observation to frame for video
-                frame = (obs[0] * 255).astype(np.uint8)
-                frames.append(frame)
-                
-                # Get action from agent
-                action = self.agent.select_action(obs)
+                frames.append(self._obs_to_frame(obs))
+                action = self.agent.select_action(obs, deterministic=self.deterministic)
                 obs, reward, done = self.eval_env.step(action)
-        
-        # Save as GIF
-        if len(frames) > 0:
-            save_file = os.path.join(
-                self.save_path, 
-                f"{self.name_prefix}_ep{episode}.gif"
-            )
-            imageio.mimsave(save_file, frames, fps=30)
+
+        if frames:
+            save_file = os.path.join(self.save_path, f"{self.name_prefix}{suffix}.gif")
+            # use duration instead of fps to avoid DeprecationWarning (duration is in ms)
+            imageio.mimsave(save_file, frames, duration=1000/self.fps)
             print(f"  Saved video: {save_file}")
 
 
@@ -117,7 +134,8 @@ class EvalCallback:
         eval_env,
         agent,
         eval_freq=50,  # Evaluate every N episodes
-        n_eval_episodes=5
+        n_eval_episodes=5,
+        callback_on_new_best=None
     ):
         """
         Args:
@@ -125,11 +143,13 @@ class EvalCallback:
             agent: DreamerV3Agent instance
             eval_freq: Evaluate every N episodes
             n_eval_episodes: Number of episodes to evaluate
+            callback_on_new_best: Callback to trigger on new best model
         """
         self.eval_env = eval_env
         self.agent = agent
         self.eval_freq = eval_freq
         self.n_eval_episodes = n_eval_episodes
+        self.callback_on_new_best = callback_on_new_best
         self.best_mean_reward = -np.inf
     
     def should_evaluate(self, episode):
@@ -149,7 +169,7 @@ class EvalCallback:
             episode_length = 0
             
             while not done:
-                action = self.agent.select_action(obs)
+                action = self.agent.select_action(obs, eval_mode=True)
                 obs, reward, done = self.eval_env.step(action)
                 episode_reward += reward
                 episode_length += 1
@@ -164,6 +184,8 @@ class EvalCallback:
         is_best = mean_reward > self.best_mean_reward
         if is_best:
             self.best_mean_reward = mean_reward
+            if self.callback_on_new_best is not None:
+                self.callback_on_new_best(suffix=f"_best_ep{episode}")
         
         print(f"  Eval ({self.n_eval_episodes} eps): "
               f"Mean Reward={mean_reward:.2f}, "
@@ -177,8 +199,11 @@ class EvalCallback:
         }
 
 
+
+from torch.utils.tensorboard import SummaryWriter
+
 class MetricsCallback:
-    """Logs training metrics to file."""
+    """Logs training metrics to file and Tensorboard."""
     
     def __init__(self, log_path='logs', name='metrics'):
         """
@@ -198,26 +223,72 @@ class MetricsCallback:
         }
         
         os.makedirs(log_path, exist_ok=True)
+        self.writer = SummaryWriter(log_dir=log_path)
     
-    def log_episode(self, episode, reward, length, duration):
+    def log_episode(self, episode, reward, length, duration, step=None):
         """Log episode metrics."""
         self.metrics['episode_rewards'].append(reward)
         self.metrics['episode_lengths'].append(length)
         self.metrics['episode_times'].append(duration)
-    
-    def log_training(self, world_model_loss=None, actor_loss=None, critic_loss=None):
+        
+        # Tensorboard
+        if step is None:
+            step = episode # Fallback if global step not provided
+            
+        self.writer.add_scalar('charts/episode_reward', reward, step)
+        self.writer.add_scalar('charts/episode_length', length, step)
+        self.writer.add_scalar('charts/episode_duration', duration, step)
+        
+        # Log mean of recent 100
+        if len(self.metrics['episode_rewards']) >= 100:
+            mean_reward = np.mean(self.metrics['episode_rewards'][-100:])
+            self.writer.add_scalar('charts/mean_episode_reward_100', mean_reward, step)
+
+    def log_training(self, step, **kwargs):
         """Log training metrics."""
-        if world_model_loss is not None:
-            self.metrics['world_model_losses'].append(world_model_loss)
-        if actor_loss is not None:
-            self.metrics['actor_losses'].append(actor_loss)
-        if critic_loss is not None:
-            self.metrics['critic_losses'].append(critic_loss)
+        # Log all kwargs to Tensorboard
+        for key, value in kwargs.items():
+            # Filter non-scalar values just in case
+            if isinstance(value, (int, float, np.number)):
+                # Clean up key name for TB (e.g., 'actor_loss' -> 'losses/actor_loss')
+                if 'loss' in key:
+                    tb_key = f"losses/{key}"
+                elif key == 'fps':
+                    tb_key = f"charts/{key}"
+                else:
+                    tb_key = f"train/{key}"
+                self.writer.add_scalar(tb_key, value, step)
+                
+            # Store specific ones to metrics dict for JSON
+            if key in ['image_loss', 'reward_loss', 'cont_loss', 'kl_loss']:
+                 # Sum up WM loss? Or just store individual?
+                 # JSON structure expects 'world_model_losses' list.
+                 # Let's just track 'loss' (total loss) if available
+                 pass
+        
+        # Backward compatibility for specific JSON lists
+        if 'loss' in kwargs: # Total WM loss usually
+            self.metrics['world_model_losses'].append(kwargs['loss'])
+        if 'actor_loss' in kwargs:
+            self.metrics['actor_losses'].append(kwargs['actor_loss'])
+        if 'critic_loss' in kwargs:
+            self.metrics['critic_losses'].append(kwargs['critic_loss'])
     
     def save(self):
         """Save metrics to file."""
+        # Convert numpy types to python types for JSON
+        def convert(o):
+            if isinstance(o, np.integer): return int(o)
+            if isinstance(o, np.floating): return float(o)
+            if isinstance(o, np.ndarray): return o.tolist()
+            return o
+            
         with open(self.metrics_file, 'w') as f:
-            json.dump(self.metrics, f, indent=2)
+            json.dump(self.metrics, f, indent=2, default=convert)
+            
+    def close(self):
+        """Close writer."""
+        self.writer.close()
     
     def get_recent_stats(self, n=100):
         """Get statistics from recent episodes."""

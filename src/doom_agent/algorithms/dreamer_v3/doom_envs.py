@@ -6,7 +6,7 @@ Similar to PPO v5 envs.py but adapted for Dreamer V3's requirements.
 
 import cv2
 import numpy as np
-from vizdoom import DoomGame, Mode, ScreenFormat, ScreenResolution
+from vizdoom import DoomGame, Mode, ScreenFormat, ScreenResolution, Button
 
 from doom_agent.paths import scenario_path
 
@@ -71,6 +71,39 @@ def defend_actions():
     ]
 
 
+# Universal Buttons (Superset)
+UNIVERSAL_BUTTONS = [
+    Button.MOVE_FORWARD,
+    Button.MOVE_BACKWARD,
+    Button.MOVE_LEFT,
+    Button.MOVE_RIGHT,
+    Button.TURN_LEFT,
+    Button.TURN_RIGHT,
+    Button.ATTACK
+]
+
+def universal_actions():
+    """
+    Universal 12-action set based on UNIVERSAL_BUTTONS.
+    Indices: FWD(0), BWD(1), L(2), R(3), TL(4), TR(5), ATK(6)
+    """
+    # 0=FWD, 1=BWD, 2=MV_L, 3=MV_R, 4=TN_L, 5=TN_R, 6=ATK
+    return [
+        [1, 0, 0, 0, 0, 0, 0],  # 0: forward
+        [0, 0, 0, 0, 0, 0, 1],  # 1: attack
+        [1, 0, 0, 0, 0, 0, 1],  # 2: forward + attack
+        [0, 0, 0, 0, 1, 0, 0],  # 3: turn left
+        [0, 0, 0, 0, 0, 1, 0],  # 4: turn right
+        [0, 0, 0, 0, 1, 0, 1],  # 5: turn left + attack
+        [0, 0, 0, 0, 0, 1, 1],  # 6: turn right + attack
+        [0, 0, 1, 0, 0, 0, 0],  # 7: strafe left
+        [0, 0, 0, 1, 0, 0, 0],  # 8: strafe right
+        [0, 1, 0, 0, 0, 0, 0],  # 9: backward
+        [1, 0, 0, 0, 1, 0, 0],  # 10: forward + turn left
+        [1, 0, 0, 0, 0, 1, 0],  # 11: forward + turn right
+    ]
+
+
 class DoomDreamerEnv:
     """VizDoom environment wrapper for Dreamer V3."""
     
@@ -121,6 +154,19 @@ class DoomDreamerEnv:
         self.game.set_window_visible(window_visible)
         self.game.init()
         
+        # Universal Action Mapping Logic
+        game_buttons = self.game.get_available_buttons()
+        self.button_map = []
+        is_universal = self.actions and len(self.actions[0]) == len(UNIVERSAL_BUTTONS)
+        
+        if is_universal:
+            # Create a map from UNIVERSAL_BUTTONS to current scenario buttons
+            for b in UNIVERSAL_BUTTONS:
+                if b in game_buttons:
+                    self.button_map.append(game_buttons.index(b))
+                else:
+                    self.button_map.append(None)
+        
         # Track game variables for reward shaping
         self.last_frag_count = 0
         self.last_health = 100.0
@@ -153,7 +199,18 @@ class DoomDreamerEnv:
             reward: Reward for this step
             done: Whether episode is finished
         """
-        reward = self.game.make_action(self.actions[action_idx], self.frame_skip)
+        action_vec = self.actions[action_idx]
+        
+        # If we have a button map, we need to translate the universal action vector
+        # to the scenario's specific button vector.
+        if self.button_map:
+            actual_action = [0] * len(self.game.get_available_buttons())
+            for i, mapped_idx in enumerate(self.button_map):
+                if mapped_idx is not None and action_vec[i] == 1:
+                    actual_action[mapped_idx] = 1
+            action_vec = actual_action
+            
+        reward = self.game.make_action(action_vec, self.frame_skip)
         done = self.game.is_episode_finished()
         
         if not done:

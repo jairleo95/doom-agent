@@ -10,9 +10,11 @@ import torch
 import numpy as np
 import ruamel.yaml as yaml
 
-# Add NM512 repo to path (prepend to ensure its imports like 'envs' take precedence)
-nm512_path = pathlib.Path(__file__).parent / "nm512_dreamer"
-sys.path.insert(0, str(nm512_path))
+# Add parent of NM512 repo to path so we can do 'from nm512_dreamer import ...'
+nm512_parent = pathlib.Path(__file__).parent
+nm512_path = nm512_parent / "nm512_dreamer"
+if str(nm512_parent) not in sys.path:
+    sys.path.insert(0, str(nm512_parent))
 
 try:
     from nm512_dreamer import tools
@@ -136,55 +138,64 @@ class DreamerV3Agent:
         # Training state
         self.state = None
         
-    def select_action(self, obs, eval_mode=False):
+    def select_action(self, obs, eval_mode=False, deterministic=None, is_first=None):
         """
         Select action for environment interaction.
         Args:
-            obs: Observation (C, H, W) numpy array, [0,1] normalized or uint8
+            obs: Observation (H, W, 1) or (N, H, W, 1) numpy array, uint8
             eval_mode: Boolean, True for evaluation (deterministic)
+            deterministic: Alias for eval_mode (used by some callbacks)
+            is_first: Boolean or boolean array/list, True if starting a new episode
         """
-        # Prepare observation dict
-        # NM512 expects (batch, C, H, W) ? No, usually (batch, H, W, C) or flattened keys?
-        # Let's check models.py in NM512... it uses tools.SymLog (usually).
-        # And it expects 'image' key.
-        # Input should be Tensor on device.
-        
+        if deterministic is not None:
+            eval_mode = deterministic
+            
         with torch.no_grad():
-            # Check if batch dimension exists
+            # Ensure obs is (N, H, W, 1)
             if obs.ndim == 3:
-                obs = obs[None, ...] # Add batch dim
-            
-            # Convert to Tensor
-            # Handle float [0, 1] vs uint8 [0, 255]
-            if obs.dtype == np.uint8:
-                 obs_uint8 = obs
+                obs = obs[None, ...]
+                n_envs = 1
             else:
-                 # Assume float [0, 1]
-                 obs_uint8 = (obs * 255).astype(np.uint8)
+                n_envs = obs.shape[0]
             
-            data = {'image': torch.tensor(obs_uint8, device=self.device)}
+            # Check if batch size changed and reset state if so
+            if self.state is not None:
+                # self.state is (latent, action)
+                # latent is a dict of tensors
+                latent_state = self.state[0]
+                if isinstance(latent_state, dict):
+                    expected_batch = list(latent_state.values())[0].shape[0]
+                else:
+                    expected_batch = latent_state.shape[0]
+                    
+                if expected_batch != n_envs:
+                    self.reset_state()
             
-            # Helper keys required by NM512 preprocess requirements
-            # is_first: True if state is None (first step of episode)
-            data['is_first'] = torch.tensor([self.state is None], device=self.device)
-            # is_terminal: Always False for action selection (we don't select action on terminal obs usually, 
-            # and if we did, it's start of next ep if reset? No, terminal obs is end.)
-            # For rollout, we assume we are continuing or starting.
-            data['is_terminal'] = torch.tensor([False], device=self.device)
+            # Handle is_first
+            if is_first is None:
+                # If not provided, we infer from self.state being None (only works for n_envs=1)
+                is_first = [self.state is None] * n_envs
+            elif isinstance(is_first, bool):
+                is_first = [is_first] * n_envs
             
-            # Action selection
-            # Dreamer.__call__ logic:
-            # policy_output, state = self._policy(obs, state, training)
+            data = {'image': torch.as_tensor(obs, device=self.device)}
+            data['is_first'] = torch.as_tensor(is_first, device=self.device)
+            # is_terminal/is_last not used in policy selection by Dreamer NM512
+            data['is_terminal'] = torch.zeros(n_envs, dtype=torch.bool, device=self.device)
             
             training = not eval_mode
-            policy_output, self.state = self.agent(data, reset=torch.tensor([False], device=self.device), state=self.state, training=training)
+            # NM512 Dreamer call: __call__(obs, reset, state=None, training=True)
+            # Note: NM512 Dreamer reset arg is the same as is_first in this context
+            policy_output, self.state = self.agent(data, reset=data['is_first'], state=self.state, training=training)
             
-            # Extract action
-            # NM512 returns one-hot if discrete
+            # Extract actions
             action = policy_output['action'].cpu().numpy()
             
-            # Return index
-            return np.argmax(action[0])
+            # Return list of indices if n_envs > 1, else single index
+            if n_envs > 1:
+                return np.argmax(action, axis=-1)
+            else:
+                return np.argmax(action[0])
 
     def train_step(self, batch):
         """
@@ -200,7 +211,7 @@ class DreamerV3Agent:
         data['image'] = batch['obs'].to(dtype=torch.uint8, device=self.device)
         data['action'] = torch.nn.functional.one_hot(batch['action'].long(), self.config.action_dim).to(self.device)
         data['reward'] = batch['reward'].to(self.device)
-        data['is_first'] = torch.zeros_like(batch['done'], device=self.device) # We assume continuous segments for now
+        data['is_first'] = batch['is_first'].to(self.device)
         data['is_terminal'] = batch['done'].to(self.device)
         data['is_last'] = batch['done'].to(self.device)
         
