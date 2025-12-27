@@ -115,7 +115,7 @@ def update_manifest(run_id, args, curriculum_name, log_dir):
 def main():
     parser = argparse.ArgumentParser(description="Dreamer V3 Training (PPO v5 Style)")
     parser.add_argument("--scenario", type=str, required=True, 
-                       choices=["deathmatch", "deadly_corridor", "defend_the_center", "universal"],
+                       choices=["deathmatch", "deathmatch_curriculum", "deadly_corridor", "defend_the_center", "universal"],
                        help="Scenario to train")
     parser.add_argument("--resume", type=str, default=None, help="Path to checkpoint to resume from (e.g. .pt file)")
     parser.add_argument("--start-stage", type=int, default=0, help="Stage index to start from (0-based)")
@@ -139,7 +139,7 @@ def main():
     args = parser.parse_args()
     
     # Select Curriculum
-    if args.scenario == "deathmatch":
+    if args.scenario == "deathmatch" or args.scenario == "deathmatch_curriculum":
         curriculum = DEATHMATCH_CURRICULUM
     elif args.scenario == "deadly_corridor":
         curriculum = DEADLY_CORRIDOR_CURRICULUM
@@ -319,6 +319,7 @@ def main():
         last_eval_time = time.time()
         last_eval_step = global_step
         stable_eta_str = "N/A"
+        ema_fps = None
         
         print(f"Main training loop started. Logging every 100 steps.")
         while stage_step < stage.timesteps:
@@ -360,8 +361,16 @@ def main():
                         
                         if eval_lap_time > 0:
                             stable_fps = eval_lap_steps / eval_lap_time
+                            
+                            # Initialize or update EMA FPS (alpha=0.3)
+                            if ema_fps is None:
+                                ema_fps = stable_fps
+                            else:
+                                alpha = 0.3
+                                ema_fps = alpha * stable_fps + (1 - alpha) * ema_fps
+                                
                             remaining_curriculum_steps = total_curriculum_steps - global_step
-                            stable_eta_seconds = remaining_curriculum_steps / stable_fps if stable_fps > 0 else None
+                            stable_eta_seconds = remaining_curriculum_steps / ema_fps if ema_fps > 0 else None
                             stable_eta_str = format_time(stable_eta_seconds)
                         
                         last_eval_time = curr_time
@@ -369,6 +378,11 @@ def main():
                         metrics_callback.log_training(global_step, 
                                                      eval_mean_reward=eval_results['mean_reward'],
                                                      eval_mean_length=eval_results['mean_length'])
+                        
+                        # Print stable ETA after evaluation summary
+                        if eval_lap_time > 0:
+                            print(f"  Lap Stats: Steps={eval_lap_steps}, Time={eval_lap_time:.1f}s, Lap FPS={stable_fps:.2f}", flush=True)
+                            print(f"  EMA Stats: Smoothed FPS={ema_fps:.2f}, ETA={stable_eta_str}", flush=True)
 
                     # Reset this env
                     obs_list[i] = train_envs[i].reset()()
@@ -387,11 +401,10 @@ def main():
                 step_diff = global_step - last_log_step
                 fps = step_diff / time_diff if time_diff > 0 else 0
                 
-                # Calculate ETA
-                # No need to recalculate eta_str here, we use stable_eta_str
-                
-                # Use the stable ETA from the last evaluation
-                print(f"[{stage.name}] Step {stage_step}/{stage.timesteps} (Global {global_step}/{total_curriculum_steps}) - FPS: {fps:.2f} - ETA: {stable_eta_str}", flush=True)
+                # Periodic logging (FPS and training progress)
+                stage_pct = (stage_step / stage.timesteps) * 100
+                global_pct = (global_step / total_curriculum_steps) * 100
+                print(f"[{stage.name}] Step {stage_step}/{stage.timesteps} ({stage_pct:.1f}%) - Global {global_step}/{total_curriculum_steps} ({global_pct:.1f}%) - FPS: {fps:.2f}", flush=True)
                 metrics_callback.log_training(global_step, fps=fps)
                 
                 last_log_time = current_time
