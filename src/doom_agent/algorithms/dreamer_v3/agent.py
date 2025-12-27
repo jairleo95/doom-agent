@@ -10,8 +10,12 @@ import torch
 import numpy as np
 import ruamel.yaml as yaml
 
+import os
+
 # Add NM512 repo directory to path so we can import its modules directly
-nm512_path = pathlib.Path(__file__).parent / "nm512_dreamer"
+# Use .resolve() to ensure we have an absolute path
+nm512_path = pathlib.Path(__file__).parent.resolve() / "nm512_dreamer"
+
 if str(nm512_path) not in sys.path:
     sys.path.insert(0, str(nm512_path))
 
@@ -19,9 +23,15 @@ try:
     import tools
     import dreamer
     import exploration as expl
-except ImportError:
-    print("Error: Could not import NM512 Dreamer implementation.")
-    print(f"Make sure {nm512_path} exists and contains tools.py, dreamer.py, etc.")
+except ImportError as e:
+    print(f"\n--- DEBUG IMPORT ERROR ---")
+    print(f"Error: {e}")
+    print(f"NM512 Path: {nm512_path}")
+    print(f"Path exists: {nm512_path.exists()}")
+    if nm512_path.exists():
+        print(f"Found files: {[f.name for f in nm512_path.glob('*.py')]}")
+    print(f"sys.path: {sys.path}")
+    print(f"---------------------------\n")
     raise
 
 
