@@ -173,7 +173,7 @@ def main():
         'obs_shape': (64, 64, 1), 
         'action_dim': len(actions),
         'num_actions': len(actions),
-        'compile': False, # Disable torch.compile to avoid nvcc PermissionError
+        'compile': False, # Disable compilation for immediate feedback
         'precision': 32,
     }
     
@@ -296,11 +296,13 @@ def main():
         env_episode_lengths = [0] * args.n_envs
         env_episode_start_times = [time.time()] * args.n_envs
         
-        last_log_time = time.time()
         last_log_step = global_step
+        last_save_step = global_step
         
         train_counter = 0
+        first_train = True
         
+        print(f"Main training loop started. Logging every 100 steps.")
         while stage_step < stage.timesteps:
             # Action (batched)
             obs_batch = np.stack(obs_list)
@@ -347,13 +349,13 @@ def main():
             global_step += args.n_envs
             
             # Periodic logging (FPS and training progress)
-            if global_step % 100 == 0:
+            if global_step >= last_log_step + 100:
                 current_time = time.time()
                 time_diff = current_time - last_log_time
                 step_diff = global_step - last_log_step
                 fps = step_diff / time_diff if time_diff > 0 else 0
                 
-                print(f"[{stage.name}] Step {stage_step}/{stage.timesteps} (Global {global_step}) - FPS: {fps:.2f}")
+                print(f"[{stage.name}] Step {stage_step}/{stage.timesteps} (Global {global_step}) - FPS: {fps:.2f}", flush=True)
                 metrics_callback.log_training(global_step, fps=fps)
                 
                 last_log_time = current_time
@@ -362,6 +364,9 @@ def main():
             # Train
             train_counter += args.n_envs
             if train_counter >= args.train_every and len(replay_buffer) > args.batch_size * args.batch_length:
+                if first_train:
+                    print("First training step started (may be slow due to CUDA/Benchmarking)...", flush=True)
+                    
                 # Calculate how many batches to run based on current accumulation
                 num_batches = (train_counter // args.train_every) * args.train_steps
                 train_counter = train_counter % args.train_every
@@ -369,6 +374,9 @@ def main():
                 for _ in range(num_batches):
                     batch = replay_buffer.sample(args.batch_size)
                     metrics = agent.train_step(batch)
+                    if first_train:
+                        print("First training step completed!", flush=True)
+                        first_train = False
                     metrics_callback.log_training(global_step, **metrics)
             
             # Periodic logging/video/eval

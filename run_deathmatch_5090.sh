@@ -10,6 +10,6 @@ python src/doom_agent/algorithms/dreamer_v3/train.py \
   --n-envs 24 \
   --device cuda \
   --batch-size 128 \
-  --train-every 10 \
-  --train-steps 10 \
-  --prefill-steps 10000
+  --train-every 5 \
+  --train-steps 1 \
+  --prefill-steps 5000
