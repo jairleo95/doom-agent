@@ -8,7 +8,7 @@ train_steps: 1
 prefill_steps: 1000
 expl_until: 0
 expl_behavior: plan2explore
-training_ratio: 512.0
+precision: 16
 compile: false
 grayscale: false # Use RGB if false
 device: ${device}

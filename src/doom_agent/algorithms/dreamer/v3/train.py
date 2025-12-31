@@ -202,8 +202,8 @@ def train_hydra(cfg: DictConfig):
     print(f"  Batch Size: {cfg.agent.batch_size}")
     print(f"  Batch Length: {cfg.agent.batch_length}")
     print(f"  Train Every: {cfg.agent.train_every}")
-    print(f"  Torch Compile: {cfg.get('compile', False)}")
-    print(f"  Mixed Precision: True")
+    print(f"  Torch Compile: {cfg.agent.get('compile', False)}")
+    print(f"  Precision: {cfg.agent.get('precision', 32)}")
     print("----------------------------\n")
     
     # Initialize Agent

@@ -3,9 +3,10 @@
 # Optimized for 32+ CPU cores and 48GB+ VRAM
 agent:
   n_envs: 32           # Maximize parallel collection using all CPU cores
-  batch_size: 512      # High GPU occupancy for Tensor Cores
+  batch_size: 256      # Moderate for 48GB VRAM with 32 envs
   batch_length: 64     # High temporal context
   train_every: 32      # Update model every 32 world steps (continuous throughput)
   train_steps: 1
   prefill_steps: 50000 # Larger initial buffer for diverse start
+  precision: 16        # Mixed Precision saves ~50% VRAM
   compile: true        # Enable torch.compile for kernel fusion
