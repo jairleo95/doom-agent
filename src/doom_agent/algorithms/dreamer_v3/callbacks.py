@@ -8,6 +8,11 @@ import os
 import json
 import imageio
 import numpy as np
+import cv2
+from pathlib import Path
+
+import torch
+from torch.utils.tensorboard import SummaryWriter
 
 from doom_agent.algorithms.dreamer_v3.doom_envs import DoomDreamerEnv
 
@@ -55,14 +60,21 @@ class VideoRecorderCallback:
         return self.render_freq and self.render_freq > 0 and global_step % self.render_freq == 0
 
     def _obs_to_frame(self, obs: np.ndarray) -> np.ndarray:
-        # obs puede venir como (H, W, 1) float o uint8; normalizamos a uint8 HxW
+        # Use cached high-res render if available, otherwise fallback to observation
+        if hasattr(self.eval_env, 'last_high_res_render') and self.eval_env.last_high_res_render is not None:
+            return self.eval_env.last_high_res_render.copy()
+            
         if obs is None:
-            return np.zeros((64, 64), dtype=np.uint8)
+            return np.zeros((64, 64, 3), dtype=np.uint8)
+            
         frame = obs
         if frame.ndim == 4:  # batch dim
             frame = frame[0]
+            
+        # Ensure RGB format for imageio
         if frame.ndim == 3 and frame.shape[-1] == 1:
-            frame = frame[..., 0]
+            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
+            
         if frame.max() <= 1.0:
             frame = (frame * 255).astype(np.uint8)
         else:
@@ -78,7 +90,7 @@ class VideoRecorderCallback:
 
             while not done:
                 frames.append(self._obs_to_frame(obs))
-                action = self.agent.select_action(obs, deterministic=self.deterministic)
+                action = self.agent.select_action(obs, eval_mode=True)
                 obs, reward, done = self.eval_env.step(action)
 
         if frames:
@@ -86,6 +98,45 @@ class VideoRecorderCallback:
             # use duration instead of fps to avoid DeprecationWarning (duration is in ms)
             imageio.mimsave(save_file, frames, duration=1000/self.fps)
             print(f"  Saved video: {save_file}")
+
+
+class ImaginationVideoCallback:
+    """Callback to record 'imagination' videos (world model predictions) to TensorBoard."""
+    
+    def __init__(self, agent, log_dir, render_freq=1000):
+        self.agent = agent # DreamerV3Agent (adapter)
+        self.log_dir = Path(log_dir)
+        self.render_freq = render_freq
+        self.writer = SummaryWriter(log_dir=log_dir)
+        
+    def should_render(self, global_step):
+        # Caller manages frequency via last_imag_log_step to handle n_envs > 1 skip
+        return self.render_freq and self.render_freq > 0
+        
+    def record_imagination(self, global_step, batch):
+        """Record model predictions for a given batch of data."""
+        if not self.should_render(global_step):
+            return
+            
+        # agent.agent is the actual Dreamer model
+        with torch.no_grad():
+            try:
+                # video_pred returns (Truth, Prediction, Error) concatenated
+                # Shape is (Batch, Time, H, W*3, C)
+                video = self.agent.agent.video_pred(batch)
+                
+                # Convert to (T, C, H, W) for TensorBoard (takes one video at a time)
+                # We take the first 1 video in the batch
+                video = video[0] # (T, H, W, C)
+                video = video.permute(0, 3, 1, 2) # (T, C, H, W)
+                
+                # TensorBoard wants (N, T, C, H, W) where N is number of videos
+                video = video.unsqueeze(0)
+                
+                self.writer.add_video("imagination/truth_pred_error", video, global_step, fps=15)
+                # print(f"Logged imagination video at step {global_step}")
+            except Exception as e:
+                print(f"Warning: Failed to log imagination video: {e}")
 
 
 class CheckpointCallback:
@@ -200,7 +251,7 @@ class EvalCallback:
 
 
 
-from torch.utils.tensorboard import SummaryWriter
+
 
 class MetricsCallback:
     """Logs training metrics to file and Tensorboard."""
@@ -225,7 +276,7 @@ class MetricsCallback:
         os.makedirs(log_path, exist_ok=True)
         self.writer = SummaryWriter(log_dir=log_path)
     
-    def log_episode(self, episode, reward, length, duration, step=None):
+    def log_episode(self, episode, reward, length, duration, step=None, info=None):
         """Log episode metrics."""
         self.metrics['episode_rewards'].append(reward)
         self.metrics['episode_lengths'].append(length)
@@ -238,6 +289,15 @@ class MetricsCallback:
         self.writer.add_scalar('charts/episode_reward', reward, step)
         self.writer.add_scalar('charts/episode_length', length, step)
         self.writer.add_scalar('charts/episode_duration', duration, step)
+        
+        # Detailed gameplay metrics if provided
+        if info:
+            if 'frags' in info:
+                self.writer.add_scalar('gameplay/frags', info['frags'], step)
+            if 'health' in info:
+                self.writer.add_scalar('gameplay/health_remaining', info['health'], step)
+            if 'ammo' in info:
+                self.writer.add_scalar('gameplay/ammo_consumed', info['ammo'], step)
         
         # Log mean of recent 100
         if len(self.metrics['episode_rewards']) >= 100:

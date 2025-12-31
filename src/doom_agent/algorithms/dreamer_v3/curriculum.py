@@ -49,8 +49,8 @@ DEATHMATCH_CURRICULUM = Curriculum(
             doom_skill=2,
             living_reward=0.0,
             frame_skip=4,
-            health_penalty=0.05,
-            ammo_penalty=0.01,
+            health_penalty=0.1,  # Increased from 0.05
+            ammo_penalty=0.05,  # Increased from 0.01
             frag_bonus=10.0
         ),
         Stage(
@@ -59,8 +59,8 @@ DEATHMATCH_CURRICULUM = Curriculum(
             doom_skill=3,
             living_reward=0.0,
             frame_skip=4,
-            health_penalty=0.1,
-            ammo_penalty=0.02,
+            health_penalty=0.2,  # Increased from 0.1
+            ammo_penalty=0.1,   # Increased from 0.02
             frag_bonus=15.0
         ),
         Stage(
@@ -69,8 +69,8 @@ DEATHMATCH_CURRICULUM = Curriculum(
             doom_skill=4,
             living_reward=0.0,
             frame_skip=3,
-            health_penalty=0.1,
-            ammo_penalty=0.02,
+            health_penalty=0.3,  # Increased from 0.1
+            ammo_penalty=0.15,  # Increased from 0.02
             frag_bonus=20.0
         ),
         Stage(
@@ -79,8 +79,8 @@ DEATHMATCH_CURRICULUM = Curriculum(
             doom_skill=5,
             living_reward=0.0,
             frame_skip=2,
-            health_penalty=0.15,
-            ammo_penalty=0.03,
+            health_penalty=0.5,  # Increased from 0.15
+            ammo_penalty=0.2,   # Increased from 0.03
             frag_bonus=25.0
         ),
     ]
@@ -193,9 +193,9 @@ GRAND_CURRICULUM = Curriculum(
             doom_skill=5,
             living_reward=0.0,
             frame_skip=2,
-            health_penalty=0.1,
-            ammo_penalty=0.02,
-            frag_bonus=20.0
+            health_penalty=0.5,   # Increased from 0.1
+            ammo_penalty=0.2,     # Increased from 0.02
+            frag_bonus=25.0       # Slight increase
         ),
     ]
 )

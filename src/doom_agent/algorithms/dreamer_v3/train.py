@@ -38,7 +38,8 @@ from doom_agent.algorithms.dreamer_v3.callbacks import (
     VideoRecorderCallback,
     CheckpointCallback,
     EvalCallback,
-    MetricsCallback
+    MetricsCallback,
+    ImaginationVideoCallback
 )
 
 def get_action_set(scenario):
@@ -53,6 +54,21 @@ def get_action_set(scenario):
         return universal_actions()  # Universal set
     else:
         return universal_actions()
+
+def flip_actions(actions_tensor):
+    """Flip actions for horizontal symmetry (universal_actions set)."""
+    # Mapping for universal_actions (indices: TL=4, TR=5, SL=2, SR=3 in universal but we mapped them differently in get_action_set)
+    # Universal set indices: 3:TL, 4:TR, 5:TL+ATK, 6:TR+ATK, 7:SL, 8:SR, 10:FWD+TL, 11:FWD+TR
+    flip_map = {3: 4, 4: 3, 5: 6, 6: 5, 7: 8, 8: 7, 10: 11, 11: 10}
+    
+    # Create a lookup tensor for efficient mapping
+    max_act = int(actions_tensor.max().item()) if actions_tensor.numel() > 0 else 12
+    lookup = torch.arange(max(max_act + 1, 12), device=actions_tensor.device)
+    for k, v in flip_map.items():
+        if k < len(lookup):
+            lookup[k] = v
+            
+    return lookup[actions_tensor]
 
 def format_time(seconds):
     """Format seconds to HH:MM:SS."""
@@ -89,7 +105,7 @@ def make_env(idx, scenario_cfg, actions, stage_config, visualize=False):
         health_penalty=stage_config.health_penalty,
         ammo_penalty=stage_config.ammo_penalty,
         frag_bonus=stage_config.frag_bonus,
-        obs_shape=(64, 64, 1)
+        obs_shape=(64, 64, 3)
     )
 
 def update_manifest(run_id, args, curriculum_name, log_dir):
@@ -179,11 +195,14 @@ def main():
         'batch_size': args.batch_size,
         'batch_length': args.batch_length,
         'device': args.device,
-        'obs_shape': (64, 64, 1), 
+        'obs_shape': (64, 64, 3), # RGB training for color videos and better feature extraction
         'action_dim': len(actions),
         'num_actions': len(actions),
         'compile': False, # Disable compilation for immediate feedback
-        'precision': 16,  # 16-bit Mixed Precision for massive performance on 5090
+        'precision': 16,  # 16-bit Mixed Precision
+        'expl_behavior': 'plan2explore', # Enable active exploration
+        'expl_until': 500_000,           # Active exploration for first 500k steps
+        'train_ratio': 1024,             # Double training intensity (default was 512)
     }
     
     # Initialize Agent
@@ -239,7 +258,7 @@ def main():
             health_penalty=stage.health_penalty,
             ammo_penalty=stage.ammo_penalty,
             frag_bonus=stage.frag_bonus,
-            obs_shape=(64, 64, 1)
+            obs_shape=(64, 64, 3)
         )
         
         # Callbacks
@@ -266,6 +285,14 @@ def main():
             n_eval_episodes=3,
             callback_on_new_best=video_rec.record_video if args.video_on_best else None
         )
+        
+        # Imagination Video Logging Setup
+        imag_video_rec = ImaginationVideoCallback(
+            agent=agent,
+            log_dir=log_dir / stage.name, # Use per-stage log dir for TB
+            render_freq=args.video_freq or 1000
+        )
+        last_imag_log_step = global_step
 
         
         # Prefill if needed (Stage 0 only)
@@ -347,8 +374,19 @@ def main():
                 if done:
                     episode_count += 1
                     ep_duration = time.time() - env_episode_start_times[i]
+                    
+                    # Capture gameplay info
+                    info = {
+                        'frags': getattr(train_envs[i], 'last_frag_count', 0),
+                        'health': getattr(train_envs[i], 'last_health', 0),
+                        'ammo': getattr(train_envs[i], 'last_ammo', 0)
+                    }
+                    if hasattr(info['frags'], '__call__'): info['frags'] = info['frags']()
+                    if hasattr(info['health'], '__call__'): info['health'] = info['health']()
+                    if hasattr(info['ammo'], '__call__'): info['ammo'] = info['ammo']()
+                    
                     # Log training episode from this env
-                    metrics_callback.log_episode(episode_count, env_episode_rewards[i], env_episode_lengths[i], ep_duration, step=global_step)
+                    metrics_callback.log_episode(episode_count, env_episode_rewards[i], env_episode_lengths[i], ep_duration, step=global_step, info=info)
                     
                     # Evaluation (on main env / eval env)
                     if eval_callback.should_evaluate(episode_count):
@@ -421,12 +459,26 @@ def main():
                 train_counter = train_counter % args.train_every
                 
                 for _ in range(num_batches):
-                    batch = replay_buffer.sample(args.batch_size)
-                    metrics = agent.train_step(batch)
-                    if first_train:
-                        print("First training step completed!", flush=True)
-                        first_train = False
-                    metrics_callback.log_training(global_step, **metrics)
+                    # Symmetry Augmentation: 50% chance to flip batch
+                    do_flip = np.random.random() < 0.5
+                    batch = replay_buffer.sample(args.batch_size, horizontal_flip=do_flip)
+                    
+                    if batch:
+                        if do_flip:
+                            batch['action'] = flip_actions(batch['action'])
+                        
+                        metrics = agent.train_step(batch)
+                        
+                        # Imagination Video Logging (Throttle by steps to handle n_envs > 1)
+                        if imag_video_rec and global_step >= last_imag_log_step + imag_video_rec.render_freq:
+                            imag_video_rec.record_imagination(global_step, batch)
+                            last_imag_log_step = global_step
+                            
+                        if first_train:
+                            print("First training step completed!", flush=True)
+                            first_train = False
+                            
+                        metrics_callback.log_training(global_step, **metrics)
             
             # Periodic logging/video/eval
             if global_step % 1000 == 0:

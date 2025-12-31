@@ -183,6 +183,10 @@ dreamer_v3/
 | Curriculum | Episode-based | Timestep-based |
 | Training | World model + Actor-Critic | Actor-Critic only |
 
+## Changelog
+
+For a detailed history of technical improvements, bug fixes (including the video crash resolution), and advanced training features like Symmetry Augmentation and Imagination Video Logging, please refer to the **[CHANGELOG.md](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer_v3/CHANGELOG.md)**.
+
 ## References
 
 - [Mastering Diverse Domains through World Models (DreamerV3)](https://arxiv.org/abs/2301.04104)

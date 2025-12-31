@@ -93,7 +93,8 @@ class TestDreamerV3Agent(unittest.TestCase):
             'obs': torch.rand((batch_size, seq_len, 64, 64, 1)), # (B, T, H, W, C)
             'action': torch.randint(0, 4, (batch_size, seq_len)),
             'reward': torch.rand((batch_size, seq_len)),
-            'done': torch.zeros((batch_size, seq_len))
+            'done': torch.zeros((batch_size, seq_len)),
+            'is_first': torch.zeros((batch_size, seq_len))
         }
         
         # Run training step

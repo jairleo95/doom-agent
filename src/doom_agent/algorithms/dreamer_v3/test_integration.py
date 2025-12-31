@@ -64,7 +64,8 @@ def test_integration():
             'obs': torch.zeros((2, 10, 64, 64, 1)), # (B, T, H, W, C)
             'action': torch.randint(0, 4, (2, 10)),
             'reward': torch.zeros((2, 10)),
-            'done': torch.zeros((2, 10))
+            'done': torch.zeros((2, 10)),
+            'is_first': torch.zeros((2, 10))
         }
         
         metrics = agent.train_step(batch)

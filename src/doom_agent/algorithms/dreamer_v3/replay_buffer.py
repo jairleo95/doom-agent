@@ -37,7 +37,7 @@ class ReplayBuffer:
         self.full = self.full or (self.idx == 0)
         self.size = self.capacity if self.full else self.idx
     
-    def sample(self, batch_size):
+    def sample(self, batch_size, horizontal_flip=False):
         """Sample sequences of experiences using vectorized lookups."""
         if self.size <= self.sequence_length:
             return None
@@ -52,9 +52,15 @@ class ReplayBuffer:
         # Compute 2D indices: (batch_size, sequence_length)
         indices = start_indices[:, None] + offsets[None, :]
         
+        obs_batch = self.obs[indices]
+        if horizontal_flip:
+            # Flip H, W, C -> Flip along Width (axis 2 of 4 index sequence or axis 3 of batch)
+            # Batch shape is (B, T, H, W, C)
+            obs_batch = np.flip(obs_batch, axis=3).copy()
+        
         # Vectorized lookup
         batch = {
-            'obs': torch.as_tensor(self.obs[indices], dtype=torch.uint8),
+            'obs': torch.as_tensor(obs_batch, dtype=torch.uint8),
             'action': torch.as_tensor(self.actions[indices], dtype=torch.long),
             'reward': torch.as_tensor(self.rewards[indices], dtype=torch.float32),
             'done': torch.as_tensor(self.dones[indices], dtype=torch.float32),

@@ -82,6 +82,10 @@ class DreamerV3Agent:
         # Ensure recursive AttributeDict for nested dicts
         self._ensure_attribute_dict(self.config)
 
+        # Map action_dim to num_actions for NM512 compatibility
+        if 'action_dim' in config:
+            self.config.num_actions = config['action_dim']
+        
         # Ensure critical configs match Doom
         self.config.logdir = str(self.run_dir)
         self.config.traindir = str(self.run_dir / "train_eps")
@@ -237,12 +241,32 @@ class DreamerV3Agent:
         torch.save(self.agent.state_dict(), path)
 
     def load(self, path):
-        checkpoint = torch.load(path)
+        checkpoint = torch.load(path, map_location=self.device)
         # Handle full checkpoint vs state dict
         if 'agent_state_dict' in checkpoint:
-            self.agent.load_state_dict(checkpoint['agent_state_dict'])
+            state_dict = checkpoint['agent_state_dict']
         else:
-            self.agent.load_state_dict(checkpoint)
+            state_dict = checkpoint
+
+        # Strip torch.compile "_orig_mod." prefixes from checkpoint for a "clean" version
+        checkpoint_clean = {}
+        for k, v in state_dict.items():
+            clean_name = k.replace("_orig_mod.", "")
+            checkpoint_clean[clean_name] = v
+        
+        # Get the model's current keys and create a mapping from their clean versions to actual names
+        model_keys = self.agent.state_dict().keys()
+        clean_to_model = {k.replace("_orig_mod.", ""): k for k in model_keys}
+        
+        # Build the final state_dict by aligning clean checkpoint keys with model keys
+        final_state_dict = {}
+        for clean_name, value in checkpoint_clean.items():
+            if clean_name in clean_to_model:
+                actual_name = clean_to_model[clean_name]
+                final_state_dict[actual_name] = value
+        
+        # Load with mismatched keys ignored if necessary (though our mapping should be exact)
+        self.agent.load_state_dict(final_state_dict, strict=False)
 
     def _recursive_update(self, d, u):
         for k, v in u.items():

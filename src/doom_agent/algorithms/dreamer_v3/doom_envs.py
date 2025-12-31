@@ -11,21 +11,38 @@ from vizdoom import DoomGame, Mode, ScreenFormat, ScreenResolution, Button
 from doom_agent.paths import scenario_path
 
 
-def preprocess_frame(frame, out_size=(64, 64)):
-    """Preprocess VizDoom frame to grayscale normalized image."""
-    if frame is None or frame.size == 0:
-        return np.zeros((1, out_size[1], out_size[0]), dtype=np.float32)
+def robust_transpose(frame):
+    """Ensure frame is in (H, W, C) format."""
+    if frame is None or frame.ndim < 2:
+        return frame
     
+    # If it's (C, H, W) - VizDoom default
     if frame.ndim == 3 and frame.shape[0] <= 4:
-        frame = np.transpose(frame, (1, 2, 0))
+        return np.transpose(frame, (1, 2, 0))
     
-    # Crop and convert to grayscale
-    cropped = frame[40:, 4:-4]
-    gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
-    resized = cv2.resize(gray, out_size, interpolation=cv2.INTER_AREA)
+    # Already (H, W, C) or (H, W)
+    return frame
+
+
+def preprocess_frame(frame, out_size=(64, 64), color=False):
+    """Preprocess VizDoom frame to normalized image."""
+    frame = robust_transpose(frame)
+    if frame is None or frame.size == 0:
+        channels = 3 if color else 1
+        return np.zeros((out_size[1], out_size[0], channels), dtype=np.uint8)
     
-    # Return uint8 [0, 255] in (H, W, C) format
-    return resized[..., None]  # Add channel dimension
+    if not color:
+        if frame.ndim == 3 and frame.shape[-1] > 1:
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+        if frame.ndim == 2:
+            frame = frame[..., None]
+    
+    resized = cv2.resize(frame, out_size, interpolation=cv2.INTER_AREA)
+    
+    if resized.ndim == 2:
+        resized = resized[..., None]
+        
+    return resized.astype(np.uint8)
 
 
 def deathmatch_actions():
@@ -138,7 +155,11 @@ class DoomDreamerEnv:
         self.ammo_penalty = ammo_penalty
         self.frag_bonus = frag_bonus
         self.obs_shape = obs_shape
+        self.color = (obs_shape[-1] == 3)
         self.out_size = (obs_shape[1], obs_shape[0]) # (W, H) for cv2.resize
+        
+        # Cache for high-resolution video recording
+        self.last_high_res_render = None
         
         self.game = DoomGame()
         self.game.load_config(scenario_path(scenario))
@@ -186,7 +207,11 @@ class DoomDreamerEnv:
             self.last_ammo = state.game_variables[1]
             self.last_health = state.game_variables[2]
             
-        return preprocess_frame(state.screen_buffer if state else None, self.out_size)
+        # Cache color high-res version for video recorder
+        if state and state.screen_buffer is not None:
+            self.last_high_res_render = robust_transpose(state.screen_buffer)
+        
+        return preprocess_frame(state.screen_buffer if state else None, self.out_size, color=self.color)
     
     def step(self, action_idx):
         """
@@ -216,7 +241,18 @@ class DoomDreamerEnv:
         
         if not done:
             state = self.game.get_state()
-            obs = preprocess_frame(state.screen_buffer, self.out_size)
+            
+            # Cache color high-res version for video recorder
+            if state and state.screen_buffer is not None:
+                self.last_high_res_render = robust_transpose(state.screen_buffer)
+            
+            # Update gameplay variables for metrics
+            if state and len(state.game_variables) >= 3:
+                self.last_frag_count = state.game_variables[0]
+                self.last_ammo = state.game_variables[1]
+                self.last_health = state.game_variables[2]
+            
+            obs = preprocess_frame(state.screen_buffer, self.out_size, color=self.color)
             
             # Reward shaping
             if state and len(state.game_variables) >= 3:
