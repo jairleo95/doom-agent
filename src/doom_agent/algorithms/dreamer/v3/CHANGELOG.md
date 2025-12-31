@@ -101,3 +101,12 @@ Este documento detalla todas las mejoras y correcciones realizadas en la impleme
 ### [Feature] Analítica de Gameplay Detallada
 *   **Cambio**: Registro de `frags`, `health` y `ammo` por episodio.
 *   **Por qué**: En lugar de ver solo una curva de recompensa genérica, ahora podemos ver curvas de precisión (frags), supervivencia (salud restante) y eficiencia (munición consumida), facilitando el tuneo de recompensas.
+
+---
+
+## 7. Refactorización del Directorio de Algoritmos
+
+### [Refactor] Reorganización Jerárquica
+*   **Cambio**: Agrupación de todas las versiones de algoritmos en familias (`ppo/`, `a2c/`, `dqn/`, `dreamer/`).
+*   **Por qué**: Mejora la navegabilidad del proyecto. DreamerV3 ahora reside en `src/doom_agent/algorithms/dreamer/v3/`.
+*   **Compatibilidad**: Se actualizaron todas las importaciones internas y la lógica de rutas en los tests (`parents[5]`) para asegurar que el sistema siga siendo funcional tras el cambio de profundidad de directorios.

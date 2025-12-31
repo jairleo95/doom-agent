@@ -37,7 +37,7 @@ sudo apt-get install -y \
 
 # 2. Clone Dependencies
 echo "Cloning/Updating nm512_dreamer repository..."
-DREAMER_PATH="src/doom_agent/algorithms/dreamer_v3/nm512_dreamer"
+DREAMER_PATH="src/doom_agent/algorithms/dreamer/v3/nm512_dreamer"
 rm -rf "$DREAMER_PATH"
 git clone https://github.com/NM512/dreamerv3-torch "$DREAMER_PATH"
 # Remove __init__.py if it exists to allow the project's flexible import structure

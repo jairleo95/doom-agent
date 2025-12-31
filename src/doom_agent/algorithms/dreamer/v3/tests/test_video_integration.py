@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 # Add src to path
-sys.path.append(str(Path(__file__).resolve().parents[4] / "src"))
+sys.path.append(str(Path(__file__).resolve().parents[6] / "src"))
 # Local import fix
 sys.path.append(str(Path(__file__).resolve().parent))
 

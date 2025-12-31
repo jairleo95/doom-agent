@@ -6,7 +6,7 @@ export PYTHONPATH=$(pwd)/src
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 # Balanced settings for 12GB VRAM to avoid OOM during training:
-python src/doom_agent/algorithms/dreamer_v3/train.py \
+python src/doom_agent/algorithms/dreamer/v3/train.py \
   --scenario deathmatch_curriculum \
   --n-envs 8 \
   --device cuda \

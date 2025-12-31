@@ -11,7 +11,7 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 # - batch-length 64: High temporal context maintained
 # - train-every 128: Optimized train/collect ratio for high FPS
 # - train-steps 1: Efficient training step
-python src/doom_agent/algorithms/dreamer_v3/train.py \
+python src/doom_agent/algorithms/dreamer/v3/train.py \
   --scenario deathmatch_curriculum \
   --n-envs 16 \
   --device cuda \

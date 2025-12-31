@@ -12,8 +12,8 @@ import shutil
 import tempfile
 
 # Add src to path
-# Assuming this script is in src/doom_agent/algorithms/dreamer/v3/
-sys.path.append(str(Path(__file__).resolve().parents[5] / "src"))
+# Assuming this script is in src/doom_agent/algorithms/dreamer/v3/tests/
+sys.path.append(str(Path(__file__).resolve().parents[6] / "src"))
 # Local import fix
 sys.path.append(str(Path(__file__).resolve().parent))
 

@@ -6,7 +6,7 @@ import imageio
 from pathlib import Path
 
 # Add src to path
-sys.path.append(str(Path(__file__).resolve().parents[4] / "src"))
+sys.path.append(str(Path(__file__).resolve().parents[6] / "src"))
 # Local import fix
 sys.path.append(str(Path(__file__).resolve().parent))
 
