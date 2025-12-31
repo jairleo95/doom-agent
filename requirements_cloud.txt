@@ -27,3 +27,4 @@ pandas
 hydra-core
 wandb
 omegaconf
+pytorch-lightning

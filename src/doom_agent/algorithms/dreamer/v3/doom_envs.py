@@ -276,7 +276,14 @@ class DoomDreamerEnv:
         else:
             obs = np.zeros(self.obs_shape, dtype=np.uint8)
         
-        return obs, reward, done
+        # Prepare info dict
+        info = {
+            'frags': self.last_frag_count,
+            'health': self.last_health,
+            'ammo': self.last_ammo
+        }
+        
+        return obs, reward, done, info
     
     def close(self):
         """Close the environment."""

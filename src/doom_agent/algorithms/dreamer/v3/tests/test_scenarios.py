@@ -1,94 +1,85 @@
-
-"""
-Integration Tests for All DreamerV3 Scenarios
-Runs a short training loop for each scenario to ensure no runtime errors.
-"""
-
 import sys
 import unittest
 from pathlib import Path
 import torch
 import shutil
 import tempfile
+from omegaconf import OmegaConf
 
 # Add src to path
-# Assuming this script is in src/doom_agent/algorithms/dreamer/v3/tests/
-sys.path.append(str(Path(__file__).resolve().parents[6] / "src"))
-# Local import fix
-sys.path.append(str(Path(__file__).resolve().parent))
+project_root = Path(__file__).resolve().parents[6]
+sys.path.append(str(project_root / "src"))
 
-from doom_agent.algorithms.dreamer.v3.train import main as train_main
-from unittest.mock import patch
+from doom_agent.algorithms.dreamer.v3.experiment import ExperimentManager
+from doom_agent.algorithms.dreamer.v3.trainer import DreamerV3Trainer
+from doom_agent.algorithms.dreamer.v3.curriculum import Curriculum, Stage
+from doom_agent.algorithms.dreamer.v3.doom_envs import universal_actions, deadly_corridor_actions, defend_actions
 
 class TestScenarios(unittest.TestCase):
     
     def setUp(self):
-        # Create a temp dir for logs to avoid clutter
         self.test_dir = tempfile.mkdtemp()
         
     def tearDown(self):
         shutil.rmtree(self.test_dir)
         
-    def run_scenario(self, scenario_name):
+    def run_scenario(self, scenario_name, actions):
         print(f"\nTesting Scenario: {scenario_name}")
-        # Run 1 step of training for 1 episode (minimal dry run)
-        # We mock sys.argv
-        args = [
-            "train.py",
-            "--scenario", scenario_name,
-            "--batch-size", "2", # Small batch
-            "--batch-length", "4", # Short seq
-            "--buffer-capacity", "100",
-            "--prefill-steps", "10", # Minimal prefill
-            "--train-every", "5",
-            "--video-freq", "10", # Trigger video recording during test
-            "--device", "cpu" # Force CPU for testing
-        ]
         
-        with patch.object(sys, 'argv', args):
-            # Hack: Patch argparse in train.py? No, main() parses sys.argv.
-            # But main() catches sys.exit? No.
-            # We need to ensure main() doesn't run forever.
-            # train.py loops based on curriculum.
-            # We can't easily modify the curriculum loop from outside.
-            # BUT we can modify the CURRICULUM object itself before calling main!
-            
-            from doom_agent.algorithms.dreamer.v3 import train
-            from doom_agent.algorithms.dreamer.v3.curriculum import Stage, Curriculum
-            
-            # Override curriculum to be extremely short
-            mock_curriculum = Curriculum(
-                name=f"test_{scenario_name}",
-                scenario=f"{scenario_name}.cfg",
-                stages=[
-                    Stage(
-                        name="test_stage",
-                        timesteps=20, # Run for 20 steps only
-                        doom_skill=1,
-                        living_reward=0.0
-                    )
-                ]
-            )
-            
-            # Patch the constants in train module
-            if scenario_name == 'deathmatch':
-                with patch.object(train, 'DEATHMATCH_CURRICULUM', mock_curriculum):
-                    train.main()
-            elif scenario_name == 'deadly_corridor':
-                with patch.object(train, 'DEADLY_CORRIDOR_CURRICULUM', mock_curriculum):
-                    train.main()
-            elif scenario_name == 'defend_the_center':
-                with patch.object(train, 'DEFEND_CENTER_CURRICULUM', mock_curriculum):
-                    train.main()
-                    
+        # Minimal Hydra-like config
+        cfg = OmegaConf.create({
+            'scenario': {
+                'name': scenario_name,
+                'scenario_name': scenario_name,
+                'curriculum': {
+                    'stages': [{'name': 'test_stage', 'timesteps': 4, 'doom_skill': 1, 'living_reward': 0.0}]
+                }
+            },
+            'agent': {
+                'obs_shape': [64, 64, 3],
+                'batch_size': 2,
+                'batch_length': 2,
+                'n_envs': 1,
+                'train_every': 2,
+                'train_steps': 1,
+                'prefill_steps': 2,
+                'buffer_capacity': 100
+            },
+            'compile': False,
+            'wandb': {'enabled': False, 'save_artifacts': False},
+            'device': 'cpu',
+            'visualize': False,
+            'resume': None,
+            'start_stage': 0,
+            'video_freq': 0
+        })
+        
+        exp = ExperimentManager(cfg)
+        # Override exp.base_dir or similar if needed, but tempdir is better
+        exp.log_dir = Path(self.test_dir) / "logs"
+        exp.ckpt_dir = Path(self.test_dir) / "checkpoints"
+        exp.video_dir = exp.ckpt_dir / "videos"
+        exp._setup_directories()
+
+        curriculum = Curriculum(
+            name=f"test_{scenario_name}",
+            scenario=f"{scenario_name}.cfg",
+            stages=[Stage(name="test", timesteps=4, doom_skill=1, living_reward=0.0)]
+        )
+        
+        trainer = DreamerV3Trainer(cfg, exp, curriculum, actions)
+        # Run a very small training loop
+        trainer.run()
+        print(f"Scenario {scenario_name} PASSED.")
+
     def test_deathmatch(self):
-        self.run_scenario("deathmatch")
+        self.run_scenario("deathmatch", universal_actions())
         
     def test_deadly_corridor(self):
-        self.run_scenario("deadly_corridor")
+        self.run_scenario("deadly_corridor", deadly_corridor_actions())
         
     def test_defend_the_center(self):
-        self.run_scenario("defend_the_center")
+        self.run_scenario("defend_the_center", defend_actions())
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,41 +1,34 @@
 # Dreamer V3 for Doom
 
-Model-based reinforcement learning implementation using Dreamer V3 for Doom scenarios.
+Model-based reinforcement learning implementation using Dreamer V3 for Doom scenarios, using Hydra for configuration and W&B for experiment tracking.
 
 ## Architecture
 
-This implementation follows a modular structure similar to PPO v5:
+This implementation follows a SOLID modular structure to ensure maintainability and scalability:
 
-### Files
+### Core Components
 
-- **[models.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/nm512_dreamer/models.py)** - Neural network components (Internal)
-- **[agent.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/agent.py)** - Main agent class (Adapter)
-  - `DreamerV3Agent` - Combines all components
-  - Training methods for world model and actor-critic
-  - Action selection and state management
+- **[train.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/train.py)**: Slim entry point that initializes Hydra and orchestrates the high-level experiment lifecycle.
+- **[trainer.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/trainer.py)**: Encapsulates the `DreamerV3Trainer` class, managing the environment lifecycle, parallel execution, and the main curriculum training loop.
+- **[experiment.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/experiment.py)**: Contains `ExperimentManager`, responsible for filesystem organization, configuration persistence, and W&B integration.
+- **[agent.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/agent.py)**: Adapter for the DreamerV3 RSSM model.
+- **[utils.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/utils.py)**: Shared utility functions for action flipping and logging.
 
-- **[replay_buffer.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/replay_buffer.py)** - Experience replay
-  - `ReplayBuffer` - Stores transitions and samples sequences
-  - **Symmetry Augmentation**: Optimized horizontal flipping for faster convergence.
+### Files & Modules
 
-- **[doom_envs.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/doom_envs.py)** - Environment wrappers (RGB Support)
-  - `DoomDreamerEnv` - VizDoom environment wrapper with frame caching
-  - High-fidelity metrics collection (frags, health, ammo)
-
-- **[curriculum.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/curriculum.py)** - Training curricula
-  - `Stage` - Single training stage configuration
-  - `Curriculum` - Multi-stage training curriculum
-
-- **[callbacks.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/callbacks.py)** - Training callbacks
-  - `VideoRecorderCallback` - Records high-res episode videos
-  - `ImaginationVideoCallback` - Logs world model predictions to TensorBoard
-  - `MetricsCallback` - Logs training and detailed gameplay metrics
-
-- **[train.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/train.py)** - Main training script
-  - Curriculum-based training loop with Mirror Learning (Symmetry)
-  - Stable ETA tracking using EMA
+- **[callbacks/](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/callbacks/)** - Training callbacks package
+  - `video.py` - Records high-res episode videos
+  - `imagination.py` - Logs world model predictions
+  - `metrics_logger.py` - Logs training and gameplay metrics
+  - `checkpoint.py` - Manages model saving
+  - `evaluation.py` - Handles periodic evaluation
+- **[curriculum.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/curriculum.py)** - Multi-stage training stage definitions.
+- **[doom_envs.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/doom_envs.py)** - RGB environment wrappers with high-fidelity metric collection.
+- **[replay_buffer.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/replay_buffer.py)** - Experience replay with symmetry augmentation.
 
 ## Usage
+
+This project uses **Hydra** for configuration management. Use the key=value syntax to override any parameters.
 
 ### Basic Training
 
@@ -44,84 +37,72 @@ Train on Deathmatch with default curriculum:
 ```bash
 # From project root
 export PYTHONPATH=$PYTHONPATH:$(pwd)/src
-python src/doom_agent/algorithms/dreamer/v3/train.py --scenario deathmatch --device cuda
+python src/doom_agent/algorithms/dreamer/v3/train.py scenario=deathmatch hardware=rtx3060
 ```
 
-### Available Scenarios
-
-- `deathmatch` - Deathmatch scenario with progressive difficulty
-- `deadly_corridor` - Navigate corridor while fighting enemies
-- `defend_the_center` - Defend position against waves
-- `universal` - Grand curriculum across multiple scenarios
-
-### Training Options
+### Advanced Overrides
 
 ```bash
 python src/doom_agent/algorithms/dreamer/v3/train.py \
-  --scenario deathmatch \
-  --device cuda \
-  --batch-size 128 \
-  --batch-length 50 \
-  --n-envs 16 \
-  --video-freq 50000
+  scenario=deathmatch \
+  hardware=rtx4090 \
+  agent.batch_size=128 \
+  agent.n_envs=16 \
+  wandb.enabled=true \
+  video_freq=50000
 ```
 
-### Resume Training
+### Resuming Training
 
 ```bash
 python src/doom_agent/algorithms/dreamer/v3/train.py \
-  --scenario deathmatch \
-  --resume src/doom_agent/algorithms/dreamer/v3/checkpoints/deathmatch/RUN_ID/skill2_warmup/dreamer_skill2_warmup_final.pt \
-  --start-stage 1
+  scenario=deathmatch \
+  resume=/path/to/checkpoint.pt \
+  start_stage=1
 ```
 
 ## Key Features
 
-- **Model-Based (DreamerV3)**: Learns world model for sample efficiency.
+- **SOLID Refactoring**: Decoupled orchestration for clean code and easy debugging.
+- **Hydra Integration**: Hierarchical configuration for hardware profiles and scenarios.
+- **W&B Artifacts**: Automatic upload of "Best Model" and "Stage Final" checkpoints to the cloud.
+- **Model-Based (DreamerV3)**: High sample efficiency using latent imagination.
 - **Symmetry Augmentation**: Mirror learning (Horizontal Flip) to double data efficiency.
-- **Imagination Logging**: Visualize agent's "dreams" on TensorBoard.
-- **Gameplay Analytics**: Track frags, health remaining, and ammo consumption.
-- **RGB Training**: High-fidelity vision for complex environments.
-- **Stable ETA**: Precise time estimates using Exponential Moving Average (EMA).
+- **RGB Training**: Full-color high-fidelity vision support.
 
 ## Output Structure
 
+Experiments are organized by scenario and timestamp:
+
 ```
-dreamer/v3/
-├── tests/              # Unit and integration tests
-├── runs/               # TensorBoard logs
-│   └── deathmatch/
-│       └── RUN_ID/
-├── checkpoints/        # Model checkpoints
-└── videos/             # Episode GIFs
+src/doom_agent/algorithms/dreamer/v3/
+├── runs/               # Experiment logs and metadata
+│   └── scenario_name/
+│       └── YYYYMMDD-HHMMSS_dreamer/
+│           ├── config.json
+│           └── [stage_name].json
+├── checkpoints/        # Model checkpoints and videos
+│   └── scenario_name/
+│       └── YYYYMMDD-HHMMSS_dreamer/
+│           ├── [stage_name]/
+│           └── videos/
 ```
 
 ## Testing
 
-Run the test suite from the project root:
+Run the full test suite using `pytest`:
 
 ```bash
-# Unit, Integration and Advanced tests
-PYTHONPATH=src python -m unittest src/doom_agent/algorithms/dreamer/v3/tests/test_unit.py \
-    src/doom_agent/algorithms/dreamer/v3/tests/test_integration.py \
-    src/doom_agent/algorithms/dreamer/v3/tests/test_advanced.py
+# From project root
+export PYTHONPATH=$PYTHONPATH:$(pwd)/src
+pytest src/doom_agent/algorithms/dreamer/v3/tests/
 ```
-
-## Comparisons & Theory
-
-| Feature | Dreamer V3 | PPO v5 |
-|---------|------------|--------|
-| Type | Model-based | Model-free |
-| Sample Efficiency | High | Medium |
-| Mirror Learning | Yes | Yes |
-| Dreaming Log | Yes | No |
-| Vision | RGB (64x64) | Grayscale Stack (160x120) |
 
 ## Changelog
 
-For a detailed history of technical improvements, bug fixes, and advanced training features, please refer to the **[CHANGELOG.md](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/CHANGELOG.md)**.
+For a detailed history of technical improvements (SOLID refactor, Hydra, W&B integration), please refer to the **[CHANGELOG.md](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/CHANGELOG.md)**.
 
 ## References
 
 - [Mastering Diverse Domains through World Models (DreamerV3)](https://arxiv.org/abs/2301.04104)
-- [Dream to Control: Learning Behaviors by Latent Imagination (DreamerV2)](https://arxiv.org/abs/2010.02193)
+- [PPO v5 Implementation](link_to_ppo_if_internal)

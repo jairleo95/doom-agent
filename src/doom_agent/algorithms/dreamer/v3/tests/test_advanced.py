@@ -16,7 +16,7 @@ sys.path.append(str(current_dir))
 
 from doom_agent.algorithms.dreamer.v3.replay_buffer import ReplayBuffer
 from doom_agent.algorithms.dreamer.v3.callbacks import MetricsCallback, ImaginationVideoCallback
-from doom_agent.algorithms.dreamer.v3.train import flip_actions
+from doom_agent.algorithms.dreamer.v3.utils import flip_actions
 
 class TestAdvancedFeatures(unittest.TestCase):
     
@@ -66,7 +66,7 @@ class TestAdvancedFeatures(unittest.TestCase):
     def test_metrics_callback_detailed(self):
         """Test that MetricsCallback logs gameplay-specific metrics."""
         # Need to patch the class where it's imported
-        patch_target = 'doom_agent.algorithms.dreamer.v3.callbacks.SummaryWriter'
+        patch_target = 'doom_agent.algorithms.dreamer.v3.callbacks.metrics_logger.SummaryWriter'
         with patch(patch_target) as mock_writer_class:
             mock_writer = mock_writer_class.return_value
             callback = MetricsCallback(log_path="test_logs")

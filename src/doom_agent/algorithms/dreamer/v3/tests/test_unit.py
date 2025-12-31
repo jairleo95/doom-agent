@@ -31,7 +31,7 @@ class TestDreamerV3Agent(unittest.TestCase):
             'device': 'cpu',
             'compile': False,
             'train_every': 5,
-            'obs_shape': (64, 64, 1),
+            'obs_shape': (64, 64, 3),
             'action_dim': 4,
             'batch_size': 2,
             'batch_length': 5,
@@ -68,7 +68,7 @@ class TestDreamerV3Agent(unittest.TestCase):
         agent = DreamerV3Agent(self.config, run_dir=self.test_dir)
         
         # Create dummy observation: (H, W, C) float [0, 1]
-        obs_shape = (64, 64, 1)
+        obs_shape = (64, 64, 3)
         obs = np.random.rand(*obs_shape).astype(np.float32)
         
         # Test training mode
@@ -90,7 +90,7 @@ class TestDreamerV3Agent(unittest.TestCase):
         seq_len = 5
         
         batch = {
-            'obs': torch.rand((batch_size, seq_len, 64, 64, 1)), # (B, T, H, W, C)
+            'obs': torch.rand((batch_size, seq_len, 64, 64, 3)), # (B, T, H, W, C)
             'action': torch.randint(0, 4, (batch_size, seq_len)),
             'reward': torch.rand((batch_size, seq_len)),
             'done': torch.zeros((batch_size, seq_len)),

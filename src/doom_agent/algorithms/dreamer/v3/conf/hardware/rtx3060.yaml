@@ -1,7 +1,7 @@
 # RTX 3060 (12GB VRAM) Settings
 agent:
-  n_envs: 8
-  batch_size: 32
+  n_envs: 4
+  batch_size: 8
   batch_length: 32
   train_every: 10
   prefill_steps: 5000

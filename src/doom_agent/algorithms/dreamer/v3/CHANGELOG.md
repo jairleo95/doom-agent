@@ -109,4 +109,29 @@ Este documento detalla todas las mejoras y correcciones realizadas en la impleme
 ### [Refactor] Reorganización Jerárquica
 *   **Cambio**: Agrupación de todas las versiones de algoritmos en familias (`ppo/`, `a2c/`, `dqn/`, `dreamer/`).
 *   **Por qué**: Mejora la navegabilidad del proyecto. DreamerV3 ahora reside en `src/doom_agent/algorithms/dreamer/v3/`.
-*   **Compatibilidad**: Se actualizaron todas las importaciones internas y la lógica de rutas en los tests (`parents[5]`) para asegurar que el sistema siga siendo funcional tras el cambio de profundidad de directorios.
+---
+
+## 8. Arquitectura Moderna y DevOps (SOLID & Hydra)
+
+### [Refactor] Refactorización SOLID (DreamerV3Trainer)
+*   **Cambio**: Migración de la lógica de entrenamiento monolítica en `train.py` a clases especializadas en `trainer.py` y `experiment.py`.
+*   **Por qué**: Mejora la testabilidad y el mantenimiento. `DreamerV3Trainer` se encarga exclusivamente de la orquestación del agente y los entornos, mientras que `ExperimentManager` gestiona el sistema de archivos y metadatos.
+*   **Código**:
+    ```python
+    trainer = DreamerV3Trainer(cfg, exp, curriculum, actions)
+    trainer.run()
+    ```
+
+### [Feature] Integración de Hydra Config
+*   **Cambio**: Implementación de Hydra para el manejo de configuraciones jerárquicas.
+*   **Por qué**: Permite desacoplar los parámetros del hardware (RTX 3060 vs 6000 Ada) de la lógica del escenario. Facilita las pruebas locales y en la nube mediante overrides de línea de comandos.
+*   **Uso**: `python train.py scenario=deathmatch hardware=rtx3060`
+
+### [Feature] W&B Artifacts y Checkpointing en la Nube
+*   **Cambio**: Automatización de la subida de modelos a Weights & Biases.
+*   **Por qué**: Asegura que el progreso del entrenamiento esté respaldado fuera del servidor local. Se suben automáticamente el "Mejor Modelo" basado en evaluación y el modelo final de cada etapa.
+*   **Código**: `wandb.log_artifact(path, name=name, type='model')`
+
+### [Improvement] Suite de Pruebas Unificada (PyTest)
+*   **Cambio**: Sincronización completa de los tests con la nueva arquitectura y entrenamiento RGB.
+*   **Por qué**: Garantiza que los cambios en la arquitectura no introduzcan regresiones. Se añadieron pruebas de orquestación para validar el flujo `ExperimentManager -> Trainer`.
