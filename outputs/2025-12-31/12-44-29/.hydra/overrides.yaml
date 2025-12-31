@@ -1,0 +1,6 @@
+- scenario=deathmatch
+- hardware=rtx3060
+- agent.prefill_steps=10
+- scenario.curriculum.stages.0.timesteps=20
+- wandb.enabled=false
+- video_freq=0

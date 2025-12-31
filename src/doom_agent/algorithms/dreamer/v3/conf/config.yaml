@@ -1,0 +1,24 @@
+defaults:
+  - agent: dreamer_v3
+  - scenario: deathmatch_curriculum
+  - hardware: rtx3060
+  - _self_
+
+# Global settings
+device: cuda
+seed: 0
+resume: null
+start_stage: 0
+video_freq: 50000
+visualize: false
+
+# W&B settings
+wandb:
+  enabled: true
+  project: doom-agent
+  entity: jairleo95
+  group: dreamer-v3
+  name: null
+  mode: online # can be offline or disabled
+  save_artifacts: true
+  save_best_only: true

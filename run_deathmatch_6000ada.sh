@@ -12,12 +12,6 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 # - train-every 128: Optimized train/collect ratio for high FPS
 # - train-steps 1: Efficient training step
 python src/doom_agent/algorithms/dreamer/v3/train.py \
-  --scenario deathmatch_curriculum \
-  --n-envs 16 \
-  --device cuda \
-  --batch-size 128 \
-  --batch-length 64 \
-  --train-every 128 \
-  --train-steps 1 \
-  --prefill-steps 20000 \
-  --video-freq 100000
+  scenario=deathmatch_curriculum \
+  hardware=rtx6000ada \
+  wandb.enabled=true

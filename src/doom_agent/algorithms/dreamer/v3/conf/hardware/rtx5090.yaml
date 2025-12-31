@@ -1,0 +1,7 @@
+# RTX 5090 (32GB VRAM) Settings
+agent:
+  n_envs: 16
+  batch_size: 128
+  batch_length: 50
+  train_every: 128
+  prefill_steps: 15000

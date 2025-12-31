@@ -1,0 +1,51 @@
+agent:
+  obs_shape:
+  - 64
+  - 64
+  - 3
+  action_dim: 12
+  batch_size: 16
+  batch_length: 50
+  train_every: 5
+  train_steps: 1
+  prefill_steps: 1000
+  expl_until: 0
+  expl_behavior: plan2explore
+  training_ratio: 512.0
+  compile: false
+  grayscale: false
+  device: ${device}
+  n_envs: 1
+scenario:
+  name: deathmatch
+  scenario_name: deathmatch
+  curriculum:
+    stages:
+    - name: skill3
+      timesteps: 10000000
+      doom_skill: 3
+      living_reward: 0.0
+      frame_skip: 4
+      health_penalty: 0.1
+      ammo_penalty: 0.01
+      frag_bonus: 10.0
+hardware:
+  agent:
+    n_envs: 8
+    batch_size: 32
+    batch_length: 32
+    train_every: 10
+    prefill_steps: 5000
+device: cuda
+seed: 0
+resume: null
+start_stage: 0
+video_freq: 50000
+visualize: false
+wandb:
+  enabled: false
+  project: doom-agent
+  entity: null
+  group: dreamer-v3
+  name: null
+  mode: online

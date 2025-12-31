@@ -1,0 +1,7 @@
+# RTX 6000 Ada (48GB VRAM) Settings
+agent:
+  n_envs: 16
+  batch_size: 128
+  batch_length: 64
+  train_every: 128
+  prefill_steps: 20000

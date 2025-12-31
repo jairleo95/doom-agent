@@ -14,6 +14,11 @@ from pathlib import Path
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
+try:
+    import wandb
+except ImportError:
+    wandb = None
+
 from doom_agent.algorithms.dreamer.v3.doom_envs import DoomDreamerEnv
 
 
@@ -127,14 +132,24 @@ class ImaginationVideoCallback:
                 
                 # Convert to (T, C, H, W) for TensorBoard (takes one video at a time)
                 # We take the first 1 video in the batch
-                video = video[0] # (T, H, W, C)
-                video = video.permute(0, 3, 1, 2) # (T, C, H, W)
+                video_tb = video[0] # (T, H, W, C)
+                video_tb = video_tb.permute(0, 3, 1, 2) # (T, C, H, W)
                 
                 # TensorBoard wants (N, T, C, H, W) where N is number of videos
-                video = video.unsqueeze(0)
+                video_tb = video_tb.unsqueeze(0)
                 
-                self.writer.add_video("imagination/truth_pred_error", video, global_step, fps=15)
-                # print(f"Logged imagination video at step {global_step}")
+                self.writer.add_video("imagination/truth_pred_error", video_tb, global_step, fps=15)
+
+                # W&B Visualization (if active)
+                if wandb and wandb.run:
+                    # wandb.Video takes (T, H, W, C) or (T, C, H, W)
+                    # Our video is (B, T, H, W*3, C)
+                    # We convert to (T, H, W*3, C) for W&B
+                    video_wb = video[0].cpu().numpy()
+                    wandb.log({
+                        "imagination/truth_pred_error": wandb.Video(video_wb, fps=15, format="gif")
+                    }, step=global_step)
+
             except Exception as e:
                 print(f"Warning: Failed to log imagination video: {e}")
 
@@ -290,6 +305,20 @@ class MetricsCallback:
         self.writer.add_scalar('charts/episode_length', length, step)
         self.writer.add_scalar('charts/episode_duration', duration, step)
         
+        # W&B (if active)
+        if wandb and wandb.run:
+            wb_data = {
+                'charts/episode_reward': reward,
+                'charts/episode_length': length,
+                'charts/episode_duration': duration,
+                'charts/episode': episode
+            }
+            if info:
+                if 'frags' in info: wb_data['gameplay/frags'] = info['frags']
+                if 'health' in info: wb_data['gameplay/health_remaining'] = info['health']
+                if 'ammo' in info: wb_data['gameplay/ammo_consumed'] = info['ammo']
+            wandb.log(wb_data, step=step)
+
         # Detailed gameplay metrics if provided
         if info:
             if 'frags' in info:
@@ -318,6 +347,10 @@ class MetricsCallback:
                 else:
                     tb_key = f"train/{key}"
                 self.writer.add_scalar(tb_key, value, step)
+                
+                # W&B (if active)
+                if wandb and wandb.run:
+                    wandb.log({tb_key: value}, step=step)
                 
             # Store specific ones to metrics dict for JSON
             if key in ['image_loss', 'reward_loss', 'cont_loss', 'kl_loss']:

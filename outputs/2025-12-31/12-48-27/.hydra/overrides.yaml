@@ -1,0 +1,4 @@
+- scenario=deathmatch
+- hardware=rtx3060
+- wandb.enabled=false
+- device=cuda

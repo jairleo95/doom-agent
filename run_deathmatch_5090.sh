@@ -6,10 +6,6 @@ export PYTHONPATH=$(pwd)/src
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 python src/doom_agent/algorithms/dreamer/v3/train.py \
-  --scenario deathmatch \
-  --n-envs 16 \
-  --device cuda \
-  --batch-size 128 \
-  --train-every 128 \
-  --train-steps 1 \
-  --prefill-steps 15000
+  scenario=deathmatch_curriculum \
+  hardware=rtx5090 \
+  wandb.enabled=true

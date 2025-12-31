@@ -24,3 +24,6 @@ sb3-contrib
 # Progress bars and logging
 tqdm
 pandas
+hydra-core
+wandb
+omegaconf

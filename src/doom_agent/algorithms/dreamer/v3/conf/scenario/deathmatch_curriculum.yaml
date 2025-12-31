@@ -1,0 +1,37 @@
+# Scenario: Deathmatch (Curriculum)
+name: deathmatch_curriculum
+scenario_name: deathmatch
+curriculum:
+  stages:
+    - name: skill2_warmup
+      timesteps: 500000
+      doom_skill: 2
+      living_reward: 0.0
+      frame_skip: 4
+      health_penalty: 0.1
+      ammo_penalty: 0.05
+      frag_bonus: 10.0
+    - name: skill3_intermediate
+      timesteps: 1000000
+      doom_skill: 3
+      living_reward: 0.0
+      frame_skip: 4
+      health_penalty: 0.2
+      ammo_penalty: 0.1
+      frag_bonus: 15.0
+    - name: skill4_advanced
+      timesteps: 2000000
+      doom_skill: 4
+      living_reward: 0.0
+      frame_skip: 3
+      health_penalty: 0.3
+      ammo_penalty: 0.15
+      frag_bonus: 20.0
+    - name: skill5_expert
+      timesteps: 4000000
+      doom_skill: 5
+      living_reward: 0.0
+      frame_skip: 2
+      health_penalty: 0.5
+      ammo_penalty: 0.2
+      frag_bonus: 25.0

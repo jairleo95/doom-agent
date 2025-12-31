@@ -67,6 +67,12 @@ python3 -c "import vizdoom; print(f'VizDoom version: {vizdoom.__version__}')"
 echo "Copying deathmatch.wad from vizdoom package..."
 python3 -c "import vizdoom; import os; import shutil; src=os.path.join(os.path.dirname(vizdoom.__file__), 'scenarios', 'deathmatch.wad'); dst='src/doom_agent/scenarios/deathmatch.wad'; shutil.copy(src, dst) if os.path.exists(src) else print('Warning: deathmatch.wad not found in vizdoom package')"
 
+# 5. W&B Login (Optional)
+echo ""
+echo "--- Weights & Biases Setup ---"
+echo "If you want to track experiments, please run: wandb login"
+echo "Otherwise, set wandb.enabled=false in your execution script."
+
 echo "--- Setup Complete! ---"
 echo ""
 echo "To start training DreamerV3, run:"
