@@ -187,12 +187,24 @@ def train_hydra(cfg: DictConfig):
     
     if cfg.device == "cuda":
         torch.backends.cudnn.benchmark = True
+        torch.set_float32_matmul_precision('high')
+        print("TensorCore optimization 'high' enabled.")
     
     # Agent Config (Derived from Hydra config)
     # Convert DictConfig to plain dict for adapter
     agent_config = OmegaConf.to_container(cfg.agent, resolve=True)
     agent_config['num_actions'] = len(actions)
     agent_config['action_dim'] = len(actions)
+    
+    # Summary of Active Configuration
+    print("\n--- Active Configuration ---")
+    print(f"  Parallel Envs (n_envs): {cfg.agent.n_envs}")
+    print(f"  Batch Size: {cfg.agent.batch_size}")
+    print(f"  Batch Length: {cfg.agent.batch_length}")
+    print(f"  Train Every: {cfg.agent.train_every}")
+    print(f"  Torch Compile: {cfg.get('compile', False)}")
+    print(f"  Mixed Precision: True")
+    print("----------------------------\n")
     
     # Initialize Agent
     agent = DreamerV3Agent(agent_config, run_dir=log_dir)
@@ -233,7 +245,7 @@ def train_hydra(cfg: DictConfig):
             from functools import partial
             train_envs = [Parallel(partial(make_env, i, scenario_cfg, actions, stage, cfg.visualize), "process") for i in range(cfg.agent.n_envs)]
         else:
-            print("Initializing single environment...")
+            print("Initializing single environment (Check hardware config if this is unexpected!)")
             from doom_agent.algorithms.dreamer.v3.parallel_fix import Damy
             train_envs = [Damy(make_env(0, scenario_cfg, actions, stage, cfg.visualize))]
         
@@ -310,7 +322,7 @@ def train_hydra(cfg: DictConfig):
             
             agent.reset_state()
 
-        # Training Loop
+        # Training Loop - PIPELINED to overlap CPU (Env) and GPU (Train)
         stage_step = 0
         obs_list = [e.reset()() for e in train_envs]
         agent.reset_state()
@@ -333,17 +345,52 @@ def train_hydra(cfg: DictConfig):
         stable_eta_str = "N/A"
         ema_fps = None
         
-        print(f"Main training loop started. Logging every 100 steps.")
+        print(f"Main pipelined training loop started. Logging every 100 steps.")
+        
+        # WARMUP: Start the first collection task immediately
+        obs_batch = np.stack(obs_list)
+        actions_vec = agent.select_action(obs_batch, is_first=is_first_list)
+        if cfg.agent.n_envs == 1: actions_vec = [actions_vec]
+        step_futures = [e.step(a) for e, a in zip(train_envs, actions_vec)]
+        
         while stage_step < stage.timesteps:
-            obs_batch = np.stack(obs_list)
-            actions_vec = agent.select_action(obs_batch, is_first=is_first_list)
-            
-            if cfg.agent.n_envs == 1:
-                actions_vec = [actions_vec]
-            
-            step_futures = [e.step(a) for e, a in zip(train_envs, actions_vec)]
+            # ---------------------------------------------------------
+            # 1. OPTIONAL: Start TRAINING Step (GPU)
+            # This happens in parallel with the env.step processing in step_futures
+            # ---------------------------------------------------------
+            train_metrics = None
+            if train_counter >= cfg.agent.train_every and len(replay_buffer) > cfg.agent.batch_size * cfg.agent.batch_length:
+                if first_train:
+                    print("First training step started (Benchmarking)...", flush=True)
+                
+                num_batches = (train_counter // cfg.agent.train_every) * cfg.agent.train_steps
+                train_counter = train_counter % cfg.agent.train_every
+                
+                # We do the actual training. PyTorch handles GPU asynchrony.
+                for _ in range(num_batches):
+                    do_flip = np.random.random() < 0.5
+                    batch = replay_buffer.sample(cfg.agent.batch_size, horizontal_flip=do_flip)
+                    if batch:
+                        if do_flip: batch['action'] = flip_actions(batch['action'])
+                        train_metrics = agent.train_step(batch) # GPU Bound
+                        
+                        if imag_video_rec and global_step >= last_imag_log_step + imag_video_rec.render_freq:
+                            imag_video_rec.record_imagination(global_step, batch)
+                            last_imag_log_step = global_step
+                        
+                        if first_train:
+                            print("First training completed!", flush=True)
+                            first_train = False
+                        
+                        if train_metrics:
+                            metrics_callback.log_training(global_step, **train_metrics)
+
+            # ---------------------------------------------------------
+            # 2. WAIT for Environment Collection (CPU/IPC)
+            # ---------------------------------------------------------
             step_results = [f() for f in step_futures]
             
+            # Process results from the steps just finished
             for i, (next_obs, reward, done) in enumerate(step_results):
                 replay_buffer.add(obs_list[i], actions_vec[i], reward, float(done), is_first_list[i])
                 
@@ -370,137 +417,69 @@ def train_hydra(cfg: DictConfig):
                     
                     if eval_callback.should_evaluate(episode_count):
                         eval_results = eval_callback.evaluate(global_step)
-                        
                         curr_time = time.time()
                         eval_lap_time = curr_time - last_eval_time
                         eval_lap_steps = global_step - last_eval_step
                         
                         if eval_lap_time > 0:
                             stable_fps = eval_lap_steps / eval_lap_time
-                            if ema_fps is None:
-                                ema_fps = stable_fps
-                            else:
-                                alpha = 0.3
-                                ema_fps = alpha * stable_fps + (1 - alpha) * ema_fps
-                                
-                            remaining_curriculum_steps = total_curriculum_steps - global_step
-                            stable_eta_seconds = remaining_curriculum_steps / ema_fps if ema_fps > 0 else None
-                            stable_eta_str = format_time(stable_eta_seconds)
+                            ema_fps = stable_fps if ema_fps is None else 0.3 * stable_fps + 0.7 * ema_fps
+                            stable_eta_str = format_time((total_curriculum_steps - global_step) / ema_fps)
                         
-                        last_eval_time = curr_time
-                        last_eval_step = global_step
-                        metrics_callback.log_training(global_step, 
-                                                      eval_mean_reward=eval_results['mean_reward'],
-                                                      eval_mean_length=eval_results['mean_length'])
+                        last_eval_time, last_eval_step = curr_time, global_step
+                        metrics_callback.log_training(global_step, eval_mean_reward=eval_results['mean_reward'], eval_mean_length=eval_results['mean_length'])
                         
-                        # W&B Best Model Upload
-                        if cfg.wandb.enabled and cfg.wandb.save_artifacts:
-                            if eval_results['mean_reward'] > best_eval_reward:
-                                best_eval_reward = eval_results['mean_reward']
-                                best_path = ckpt_dir / "best_model.pt"
-                                agent.save(str(best_path))
-                                save_wandb_artifact(
-                                    file_path=best_path,
-                                    artifact_name=f"{run_id}_best_model",
-                                    artifact_type="model",
-                                    description=f"Best model so far (Reward: {best_eval_reward:.2f})",
-                                    metadata={"reward": best_eval_reward, "step": global_step, "stage": stage.name}
-                                )
+                        if cfg.wandb.enabled and cfg.wandb.save_artifacts and eval_results['mean_reward'] > best_eval_reward:
+                            best_eval_reward = eval_results['mean_reward']
+                            best_path = ckpt_dir / "best_model.pt"
+                            agent.save(str(best_path))
+                            save_wandb_artifact(best_path, f"{run_id}_best_model", "model")
                         
                         if eval_lap_time > 0:
-                            print(f"  Lap Stats: Steps={eval_lap_steps}, Time={eval_lap_time:.1f}s, Lap FPS={stable_fps:.2f}", flush=True)
-                            print(f"  EMA Stats: Smoothed FPS={ema_fps:.2f}, ETA={stable_eta_str}", flush=True)
+                            print(f"  Lap Stats: FPS={stable_fps:.2f}, EMA FPS={ema_fps:.2f}, ETA={stable_eta_str}")
 
                     obs_list[i] = train_envs[i].reset()()
                     is_first_list[i] = True
-                    env_episode_rewards[i] = 0.0
-                    env_episode_lengths[i] = 0
+                    env_episode_rewards[i], env_episode_lengths[i] = 0.0, 0
                     env_episode_start_times[i] = time.time()
             
+            # ---------------------------------------------------------
+            # 3. Start NEXT Collection Cycle (non-blocking start)
+            # ---------------------------------------------------------
             stage_step += cfg.agent.n_envs
             global_step += cfg.agent.n_envs
+            train_counter += cfg.agent.n_envs
             
+            # Select next actions
+            obs_batch = np.stack(obs_list)
+            actions_vec = agent.select_action(obs_batch, is_first=is_first_list)
+            if cfg.agent.n_envs == 1: actions_vec = [actions_vec]
+            
+            # Launch future step
+            step_futures = [e.step(a) for e, a in zip(train_envs, actions_vec)]
+
+            # ---------------------------------------------------------
+            # 4. Progress Logging & Maintenance
+            # ---------------------------------------------------------
             if global_step >= last_log_step + 100:
                 current_time = time.time()
                 time_diff = current_time - last_log_time
-                step_diff = global_step - last_log_step
-                fps = step_diff / time_diff if time_diff > 0 else 0
-                
-                stage_pct = (stage_step / stage.timesteps) * 100
-                global_pct = (global_step / total_curriculum_steps) * 100
-                print(f"[{stage.name}] Step {stage_step}/{stage.timesteps} ({stage_pct:.1f}%) - Global {global_step}/{total_curriculum_steps} ({global_pct:.1f}%) - FPS: {fps:.2f}", flush=True)
+                fps = (global_step - last_log_step) / time_diff if time_diff > 0 else 0
+                print(f"[{stage.name}] Step {stage_step}/{stage.timesteps} ({ (stage_step/stage.timesteps)*100:.1f}%) - FPS: {fps:.2f}")
                 metrics_callback.log_training(global_step, fps=fps)
-                
-                last_log_time = current_time
-                last_log_step = global_step
-            
-            # Train
-            train_counter += cfg.agent.n_envs
-            if train_counter >= cfg.agent.train_every and len(replay_buffer) > cfg.agent.batch_size * cfg.agent.batch_length:
-                if first_train:
-                    print("First training step started (may be slow due to CUDA/Benchmarking)...", flush=True)
-                    
-                num_batches = (train_counter // cfg.agent.train_every) * cfg.agent.train_steps
-                train_counter = train_counter % cfg.agent.train_every
-                
-                for _ in range(num_batches):
-                    do_flip = np.random.random() < 0.5
-                    batch = replay_buffer.sample(cfg.agent.batch_size, horizontal_flip=do_flip)
-                    
-                    if batch:
-                        if do_flip:
-                            batch['action'] = flip_actions(batch['action'])
-                        
-                        metrics = agent.train_step(batch)
-                        
-                        if imag_video_rec and global_step >= last_imag_log_step + imag_video_rec.render_freq:
-                            imag_video_rec.record_imagination(global_step, batch)
-                            last_imag_log_step = global_step
-                            
-                        if first_train:
-                            print("First training step completed!", flush=True)
-                            first_train = False
-                            
-                        metrics_callback.log_training(global_step, **metrics)
-            
-            if global_step % 1000 == 0:
-                print(f"Step {stage_step}/{stage.timesteps} (Global {global_step})")
+                last_log_time, last_log_step = current_time, global_step
             
             if video_rec.should_record(global_step):
                 video_rec.record_video(suffix=f"_step_{global_step}")
                 
             if global_step % 50_000 == 0:
-                path = stage_ckpt_dir / f"dreamer_{stage.name}_{global_step}.pt"
-                agent.save(str(path))
+                agent.save(str(stage_ckpt_dir / f"dreamer_{stage.name}_{global_step}.pt"))
         
         # Stage Complete
-        duration = time.time() - stage_start_time
-        final_path = stage_ckpt_dir / f"dreamer_{stage.name}_final.pt"
-        agent.save(str(final_path))
-        print(f"Stage {stage.name} Complete. Saved to {final_path}")
+        agent.save(str(stage_ckpt_dir / f"dreamer_{stage.name}_final.pt"))
+        print(f"Stage {stage.name} Complete.")
         
-        # W&B Stage Final Upload
-        if cfg.wandb.enabled and cfg.wandb.save_artifacts:
-            save_wandb_artifact(
-                file_path=final_path,
-                artifact_name=f"{run_id}_{stage.name}_final",
-                artifact_type="model",
-                description=f"Final model for stage {stage.name}",
-                metadata={"stage": stage.name, "step": global_step}
-            )
-        
-        stage_results = {
-            "stage": stage.name,
-            "duration_seconds": duration,
-            "timesteps": stage_step,
-            "final_model": str(final_path),
-            "global_step": global_step
-        }
-        with open(log_dir / f"result_{stage.name}.json", "w") as f:
-            json.dump(stage_results, f, indent=4)
-            
-        for e in train_envs:
-            e.close()
+        for e in train_envs: e.close()
         eval_env.close()
         metrics_callback.save()
 

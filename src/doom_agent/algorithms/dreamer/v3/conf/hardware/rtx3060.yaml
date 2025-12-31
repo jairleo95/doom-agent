@@ -1,3 +1,4 @@
+# @package _global_
 # RTX 3060 (12GB VRAM) Settings
 agent:
   n_envs: 8

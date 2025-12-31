@@ -1,3 +1,4 @@
+# @package _global_
 # RTX 6000 Ada (48GB VRAM) Settings
 agent:
   n_envs: 16

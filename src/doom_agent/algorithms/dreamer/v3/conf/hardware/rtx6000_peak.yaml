@@ -1,3 +1,4 @@
+# @package _global_
 # RTX 6000 Ada / 96GB PRO Peak Performance Settings
 # Optimized for 32+ CPU cores and 48GB+ VRAM
 agent:
