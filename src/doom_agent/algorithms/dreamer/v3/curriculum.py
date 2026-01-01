@@ -22,6 +22,8 @@ class Stage:
     health_penalty: float = 0.0
     ammo_penalty: float = 0.0
     frag_bonus: float = 10.0
+    movement_reward: float = 0.0  # Reward per unit of distance moved
+    target_reward: Optional[float] = None  # Reward threshold to trigger early stage exit
     
     # Optional scenario override
     scenario: Optional[str] = None
@@ -51,7 +53,9 @@ DEATHMATCH_CURRICULUM = Curriculum(
             frame_skip=4,
             health_penalty=0.1,  # Increased from 0.05
             ammo_penalty=0.05,  # Increased from 0.01
-            frag_bonus=10.0
+            frag_bonus=10.0,
+            movement_reward=0.01, # Alentar movimiento inicial
+            target_reward=30.0    # Salto dinámico si domina el warmup
         ),
         Stage(
             name="skill3_intermediate",
@@ -61,7 +65,9 @@ DEATHMATCH_CURRICULUM = Curriculum(
             frame_skip=4,
             health_penalty=0.2,  # Increased from 0.1
             ammo_penalty=0.1,   # Increased from 0.02
-            frag_bonus=15.0
+            frag_bonus=15.0,
+            movement_reward=0.01,
+            target_reward=40.0
         ),
         Stage(
             name="skill4_advanced",
@@ -71,7 +77,9 @@ DEATHMATCH_CURRICULUM = Curriculum(
             frame_skip=4,
             health_penalty=0.3,  # Increased from 0.1
             ammo_penalty=0.15,  # Increased from 0.02
-            frag_bonus=20.0
+            frag_bonus=20.0,
+            movement_reward=0.005,
+            target_reward=50.0
         ),
         Stage(
             name="skill5_expert",
@@ -81,7 +89,9 @@ DEATHMATCH_CURRICULUM = Curriculum(
             frame_skip=4,
             health_penalty=0.5,  # Increased from 0.15
             ammo_penalty=0.2,   # Increased from 0.03
-            frag_bonus=25.0
+            frag_bonus=25.0,
+            movement_reward=0.005,
+            target_reward=100.0   # Objetivo final alto
         ),
     ]
 )

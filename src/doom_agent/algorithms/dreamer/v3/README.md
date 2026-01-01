@@ -16,15 +16,15 @@ This implementation follows a modular structure similar to PPO v5:
 
 - **[replay_buffer.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/replay_buffer.py)** - Experience replay
   - `ReplayBuffer` - Stores transitions and samples sequences
-  - **Symmetry Augmentation**: Optimized horizontal flipping for faster convergence.
+  - **Optimized Sampling**: Vectorized horizontal flipping and sequence retrieval.
 
 - **[doom_envs.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/doom_envs.py)** - Environment wrappers (RGB Support)
   - `DoomDreamerEnv` - VizDoom environment wrapper with frame caching
   - High-fidelity metrics collection (frags, health, ammo)
 
 - **[curriculum.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/curriculum.py)** - Training curricula
-  - `Stage` - Single training stage configuration
-  - `Curriculum` - Multi-stage training curriculum
+  - `Stage` - Single training stage with specific `target_reward` for early transition.
+  - `Curriculum` - Multi-stage training curriculum with standardized `frame_skip` for temporal stability.
 
 - **[callbacks.py](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/callbacks.py)** - Training callbacks
   - `VideoRecorderCallback` - Records high-res episode videos
@@ -78,9 +78,10 @@ python src/doom_agent/algorithms/dreamer/v3/train.py \
 ## Key Features
 
 - **Model-Based (DreamerV3)**: Learns world model for sample efficiency.
-- **Symmetry Augmentation**: Mirror learning (Horizontal Flip) to double data efficiency.
-- **Imagination Logging**: Visualize agent's "dreams" on TensorBoard.
-- **Gameplay Analytics**: Track frags, health remaining, and ammo consumption.
+- **Auto-Curriculum**: Dynamic stage transitions when agent reaches target reward.
+- **Movement Incentives**: Velocity-based rewards to discourage camping behavior.
+- **Architectural Scaling**: Optimized for 48GB+ VRAM (RTX 6000 Ada / 5090) with 1024-unit RSSM.
+- **Visual Robustness**: Random Crop augmentation for improved generalization.
 - **RGB Training**: High-fidelity vision for complex environments.
 - **Stable ETA**: Precise time estimates using Exponential Moving Average (EMA).
 

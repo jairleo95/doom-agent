@@ -6,7 +6,7 @@ Similar to PPO v5 envs.py but adapted for Dreamer V3's requirements.
 
 import cv2
 import numpy as np
-from vizdoom import DoomGame, Mode, ScreenFormat, ScreenResolution, Button
+from vizdoom import DoomGame, Mode, ScreenFormat, ScreenResolution, Button, GameVariable
 
 from doom_agent.paths import scenario_path
 
@@ -135,6 +135,7 @@ class DoomDreamerEnv:
         health_penalty=0.0,
         ammo_penalty=0.0,
         frag_bonus=10.0,
+        movement_reward=0.0,
         obs_shape=(64, 64, 1)
     ):
         """
@@ -154,6 +155,7 @@ class DoomDreamerEnv:
         self.health_penalty = health_penalty
         self.ammo_penalty = ammo_penalty
         self.frag_bonus = frag_bonus
+        self.movement_reward = movement_reward
         self.obs_shape = obs_shape
         self.color = (obs_shape[-1] == 3)
         self.out_size = (obs_shape[1], obs_shape[0]) # (W, H) for cv2.resize
@@ -171,6 +173,10 @@ class DoomDreamerEnv:
         if living_reward is not None:
             self.game.set_living_reward(float(living_reward))
             
+        # Add position variables for movement reward if needed
+        self.game.add_available_game_variable(GameVariable.POSITION_X)
+        self.game.add_available_game_variable(GameVariable.POSITION_Y)
+        
         self.game.set_screen_format(ScreenFormat.RGB24)
         self.game.set_screen_resolution(ScreenResolution.RES_320X240)
         self.game.set_window_visible(window_visible)
@@ -193,6 +199,8 @@ class DoomDreamerEnv:
         self.last_frag_count = 0
         self.last_health = 100.0
         self.last_ammo = 0.0
+        self.last_x = 0.0
+        self.last_y = 0.0
         
     def reset(self):
         """Reset environment and return initial observation."""
@@ -206,6 +214,11 @@ class DoomDreamerEnv:
             self.last_frag_count = state.game_variables[0]
             self.last_ammo = state.game_variables[1]
             self.last_health = state.game_variables[2]
+            
+            # Position variables are added after the standard ones
+            if len(state.game_variables) >= 5:
+                self.last_x = state.game_variables[3]
+                self.last_y = state.game_variables[4]
             
         # Cache color high-res version for video recorder
         if state and state.screen_buffer is not None:
@@ -273,6 +286,17 @@ class DoomDreamerEnv:
                 if health < self.last_health:
                     reward -= (self.last_health - health) * self.health_penalty
                 self.last_health = health
+
+                # Movement reward (Anti-camping)
+                if self.movement_reward > 0 and len(state.game_variables) >= 5:
+                    x = state.game_variables[3]
+                    y = state.game_variables[4]
+                    dx = x - self.last_x
+                    dy = y - self.last_y
+                    dist = np.sqrt(dx**2 + dy**2)
+                    reward += dist * self.movement_reward
+                    self.last_x = x
+                    self.last_y = y
         else:
             obs = np.zeros(self.obs_shape, dtype=np.uint8)
         

@@ -10,3 +10,9 @@ agent:
   prefill_steps: 50000
   precision: 16
   compile: true
+  
+  # Peak Architecture (Cerebro Doble)
+  dyn_deter: 1024
+  dyn_hidden: 1024
+  units: 1024
+  imag_horizon: 25

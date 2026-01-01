@@ -104,6 +104,7 @@ def make_env(idx, scenario_cfg, actions, stage_config, visualize=False):
         health_penalty=stage_config.health_penalty,
         ammo_penalty=stage_config.ammo_penalty,
         frag_bonus=stage_config.frag_bonus,
+        movement_reward=getattr(stage_config, 'movement_reward', 0.0),
         obs_shape=(64, 64, 3)
     )
 
@@ -259,6 +260,7 @@ def train_hydra(cfg: DictConfig):
             health_penalty=stage.health_penalty,
             ammo_penalty=stage.ammo_penalty,
             frag_bonus=stage.frag_bonus,
+            movement_reward=getattr(stage, 'movement_reward', 0.0),
             obs_shape=(64, 64, 3)
         )
         
@@ -437,6 +439,13 @@ def train_hydra(cfg: DictConfig):
                         
                         if eval_lap_time > 0:
                             print(f"  Lap Stats: FPS={stable_fps:.2f}, EMA FPS={ema_fps:.2f}, ETA={stable_eta_str}")
+                            
+                        # Dynamic Transition Check
+                        if stage.target_reward is not None and eval_results['mean_reward'] >= stage.target_reward:
+                            skipped = stage.timesteps - stage_step
+                            total_curriculum_steps -= skipped
+                            print(f"\n>>> DYNAMIC TRANSITION! Reward {eval_results['mean_reward']:.1f} >= Target {stage.target_reward:.1f}. Skipping ~{skipped} steps.")
+                            break
 
                     obs_list[i] = train_envs[i].reset()()
                     is_first_list[i] = True

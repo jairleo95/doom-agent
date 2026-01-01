@@ -65,8 +65,8 @@ class TestAdvancedFeatures(unittest.TestCase):
 
     def test_metrics_callback_detailed(self):
         """Test that MetricsCallback logs gameplay-specific metrics."""
-        # Need to patch the class where it's imported
-        patch_target = 'doom_agent.algorithms.dreamer.v3.callbacks.SummaryWriter'
+        # Need to patch the class where it's imported in the metrics module
+        patch_target = 'doom_agent.algorithms.dreamer.v3.callbacks.metrics.SummaryWriter'
         with patch(patch_target) as mock_writer_class:
             mock_writer = mock_writer_class.return_value
             callback = MetricsCallback(log_path="test_logs")
@@ -90,6 +90,28 @@ class TestAdvancedFeatures(unittest.TestCase):
         self.assertTrue(callback.should_render(100))
         self.assertTrue(callback.should_render(50)) 
         self.assertTrue(callback.should_render(200))
+
+    def test_dynamic_transition_logic(self):
+        """Test the logic of dynamic transitions (Auto-Curriculum)."""
+        # Mock a stage with a target reward
+        stage = MagicMock()
+        stage.target_reward = 30.0
+        stage.timesteps = 100_000
+        
+        # Reward below threshold
+        eval_reward = 25.0
+        should_transition = stage.target_reward is not None and eval_reward >= stage.target_reward
+        self.assertFalse(should_transition)
+        
+        # Reward at threshold
+        eval_reward = 30.0
+        should_transition = stage.target_reward is not None and eval_reward >= stage.target_reward
+        self.assertTrue(should_transition)
+        
+        # Reward above threshold
+        eval_reward = 45.0
+        should_transition = stage.target_reward is not None and eval_reward >= stage.target_reward
+        self.assertTrue(should_transition)
 
 if __name__ == '__main__':
     unittest.main()

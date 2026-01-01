@@ -13,3 +13,9 @@ compile: false
 grayscale: false # Use RGB if false
 device: ${device}
 n_envs: 1
+
+# Escalado de Arquitectura (Opcional, sobreescrito por hardware)
+dyn_deter: 512
+dyn_hidden: 512
+units: 512
+imag_horizon: 15
