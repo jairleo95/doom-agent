@@ -4,5 +4,6 @@ agent:
   n_envs: 8
   batch_size: 32
   batch_length: 32
-  train_every: 10
+  train_every: 1
+  train_steps: 1
   prefill_steps: 5000

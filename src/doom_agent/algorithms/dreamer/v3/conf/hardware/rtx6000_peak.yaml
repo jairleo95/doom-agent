@@ -2,11 +2,11 @@
 # RTX 6000 Ada / 96GB PRO Peak Performance Settings
 # Optimized for 32+ CPU cores and 48GB+ VRAM
 agent:
-  n_envs: 32           # Maximize parallel collection using all CPU cores
-  batch_size: 256      # Moderate for 48GB VRAM with 32 envs
-  batch_length: 64     # High temporal context
-  train_every: 32      # Update model every 32 world steps (continuous throughput)
-  train_steps: 1
-  prefill_steps: 50000 # Larger initial buffer for diverse start
-  precision: 16        # Mixed Precision saves ~50% VRAM
-  compile: true        # Enable torch.compile for kernel fusion
+  n_envs: 64           # Máximo aprovechamiento de CPU
+  batch_size: 256
+  batch_length: 64
+  train_every: 2       # Optimizado para Pipelining GPU/CPU
+  train_steps: 2       # Ratio 1:1 (Efectivo y rápido)
+  prefill_steps: 50000
+  precision: 16
+  compile: true

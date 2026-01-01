@@ -3,11 +3,11 @@ obs_shape: [64, 64, 3]
 action_dim: 12 # Default for deathmatch
 batch_size: 16
 batch_length: 50
-train_every: 5
+train_every: 1
 train_steps: 1
 prefill_steps: 1000
 expl_until: 0
-expl_behavior: plan2explore
+expl_behavior: greedy
 precision: 16
 compile: false
 grayscale: false # Use RGB if false
