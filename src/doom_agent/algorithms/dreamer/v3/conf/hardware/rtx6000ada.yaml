@@ -1,10 +1,10 @@
 # @package _global_
 # RTX 6000 Ada (48GB VRAM) Settings
 agent:
-  n_envs: 32
+  n_envs: 16
   batch_size: 128
   batch_length: 64
-  train_every: 16      # Corregido: 1 actualización cada 16 pasos (Ratio 512:1)
+  train_every: 128      # Corregido: 1 actualización cada 16 pasos (Ratio 512:1)
   train_steps: 1
   prefill_steps: 20000
   precision: 16
