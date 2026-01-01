@@ -1,10 +1,10 @@
 # @package _global_
 # RTX 6000 Ada (48GB VRAM) Settings
 agent:
-  n_envs: 32           # Subido a 32 para mejor paralelismo
+  n_envs: 32
   batch_size: 128
   batch_length: 64
-  train_every: 2       # Entrenar cada 2 pasos para permitir pipelining
-  train_steps: 2       # 2 actualizaciones (Mantiene ratio 1:1)
+  train_every: 16      # Corregido: 1 actualización cada 16 pasos (Ratio 512:1)
+  train_steps: 1
   prefill_steps: 20000
   precision: 16

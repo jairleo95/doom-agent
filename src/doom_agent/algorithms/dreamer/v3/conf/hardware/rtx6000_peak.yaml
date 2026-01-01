@@ -2,11 +2,11 @@
 # RTX 6000 Ada / 96GB PRO Peak Performance Settings
 # Optimized for 32+ CPU cores and 48GB+ VRAM
 agent:
-  n_envs: 64           # Máximo aprovechamiento de CPU
+  n_envs: 64
   batch_size: 256
   batch_length: 64
-  train_every: 2       # Optimizado para Pipelining GPU/CPU
-  train_steps: 2       # Ratio 1:1 (Efectivo y rápido)
+  train_every: 32      # Corregido: 1 actualización cada 32 pasos (Ratio 512:1)
+  train_steps: 1
   prefill_steps: 50000
   precision: 16
   compile: true
