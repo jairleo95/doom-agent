@@ -9,17 +9,34 @@ root_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(root_dir))
 sys.path.append(str(root_dir / "src"))
 
+print("DEBUG: Starting imports...")
 from doom_agent.algorithms.dreamer.v3.doom_envs import DoomDreamerEnv, deathmatch_actions
 from doom_agent.algorithms.dreamer.v3.agent import DreamerV3Agent
 try:
+    print("DEBUG: Importing adapters...")
     from scripts.arnold_adapter import ArnoldAdapter
     from scripts.dfp_adapter import DFPAdapter
-except (ImportError, ModuleNotFoundError):
-    from arnold_adapter import ArnoldAdapter
-    from dfp_adapter import DFPAdapter
+    from scripts.sf_adapter import SampleFactoryAdapter
+    print("DEBUG: Adapters imported successfully.")
+except (ImportError, ModuleNotFoundError) as e:
+    print(f"DEBUG: Import error caught: {e}. Trying fallback...")
+    try:
+        from arnold_adapter import ArnoldAdapter
+        from dfp_adapter import DFPAdapter
+        from sf_adapter import SampleFactoryAdapter
+        print("DEBUG: Fallback adapters imported successfully.")
+    except Exception as e2:
+         print(f"DEBUG: FALLBACK IMPORT FAILED: {e2}")
+         import traceback
+         traceback.print_exc()
+except Exception as e:
+    print(f"DEBUG: CSRITICAL IMPORT ERROR: {e}")
+    import traceback
+    traceback.print_exc()
+
 from omegaconf import OmegaConf
 
-def test_shaping(manual=False, agent_path=None, use_arnold=False, use_dfp=False):
+def test_shaping(manual=False, agent_path=None, use_arnold=False, use_dfp=False, use_sf=False):
     print("--- 🧪 Validador de Reward Shaping (Incentivos) ---")
     
     # 1. Environment Setup
@@ -56,6 +73,12 @@ def test_shaping(manual=False, agent_path=None, use_arnold=False, use_dfp=False)
         osd_color = (255, 100, 0)
         agent = DFPAdapter()
         print("MODO: SOTA INTEL DFP 2016")
+    elif use_sf:
+        mode_text = "SAMPLE FACTORY (2022)"
+        osd_color = (180, 0, 180) # Purple
+        sf_path = str(root_dir / "external/sample_factory_model")
+        agent = SampleFactoryAdapter(sf_path)
+        print("MODO: SOTA SAMPLE FACTORY 2022")
     elif agent_path:
         mode_text = "DREAMER V3 (IA)"
         osd_color = (0, 255, 255)
@@ -93,7 +116,7 @@ def test_shaping(manual=False, agent_path=None, use_arnold=False, use_dfp=False)
             # Select action
             action_name = "STAY"
             
-            if use_arnold or use_dfp:
+            if use_arnold or use_dfp or use_sf:
                 # Benchmark agents return universal vectors
                 action_vec = agent.select_action(obs, health=info['health'], ammo=info['ammo'], frags=info['frags'])
                 obs, reward, done, info = env.step_manual(action_vec)
@@ -165,17 +188,20 @@ def test_shaping(manual=False, agent_path=None, use_arnold=False, use_dfp=False)
         cv2.destroyAllWindows()
 
 if __name__ == "__main__":
+    print("DEBUG: Entered __main__")
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--manual", action="store_true")
     parser.add_argument("--agent_run", type=str)
     parser.add_argument("--arnold", action="store_true")
     parser.add_argument("--dfp", action="store_true")
+    parser.add_argument("--sf", action="store_true")
     args = parser.parse_args()
     
     test_shaping(
         manual=args.manual, 
         agent_path=args.agent_run, 
         use_arnold=args.arnold, 
-        use_dfp=args.dfp
+        use_dfp=args.dfp,
+        use_sf=args.sf
     )
