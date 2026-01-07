@@ -1,7 +1,7 @@
 # @package _global_
 # RTX 3060 (12GB VRAM) Settings
 agent:
-  n_envs: 8
+  n_envs: 12
   batch_size: 32
   batch_length: 32
   train_every: 1

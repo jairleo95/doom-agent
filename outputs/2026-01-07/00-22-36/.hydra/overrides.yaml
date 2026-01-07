@@ -1,0 +1,6 @@
+- scenario=deathmatch
+- hardware=rtx3060
+- agent.n_envs=1
+- agent.prefill_steps=50
+- wandb.enabled=false
+- device=cuda

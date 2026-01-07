@@ -110,3 +110,33 @@ Este documento detalla todas las mejoras y correcciones realizadas en la impleme
 *   **Cambio**: Agrupación de todas las versiones de algoritmos en familias (`ppo/`, `a2c/`, `dqn/`, `dreamer/`).
 *   **Por qué**: Mejora la navegabilidad del proyecto. DreamerV3 ahora reside en `src/doom_agent/algorithms/dreamer/v3/`.
 *   **Compatibilidad**: Se actualizaron todas las importaciones internas y la lógica de rutas en los tests (`parents[5]`) para asegurar que el sistema siga siendo funcional tras el cambio de profundidad de directorios.
+
+---
+
+## 7. Análisis de Resultados y Versionado (W&B)
+
+### [Feature] Exportador de Métricas (`export_results.py`)
+*   **Cambio**: Herramienta para descargar historial (CSV) y resúmenes (JSON) de W&B.
+*   **Por qué**: Permite versionar los logros del agente directamente en el repositorio, creando un historial de "Récords" en **`RESULTS.md`**.
+*   **Mejora**: Implementación de **Muestreo (Sampling)** para evitar bloqueos en el hilo principal con carreras de millones de pasos.
+
+### [Feature] Descarga Forzada de Modelos
+*   **Cambio**: `download_model.py` ahora elimina versiones locales previas antes de bajar la nueva.
+*   **Por qué**: Garantiza que el usuario siempre visualice el modelo más reciente (fresco de la nube) sin riesgo de cargar un checkpoint antiguo por error.
+
+---
+
+## 8. Optimización del Comportamiento (Anti-Camping & Anti-Stuck)
+
+### [Feature] Sistema de Hambre (Hunger)
+*   **Cambio**: Configuración de `living_reward` negativo progresivo en `curriculum.py`.
+*   **Por qué**: Elimina la pasividad. El agente ahora "muere de hambre" (pierde puntos) si no combate, forzándolo a buscar enemigos activamente en zonas de peligro.
+
+### [Feature] Recompensa por Desplazamiento Neto y Penalización por Estancamiento
+*   **Cambio**: Implementación de un buffer de 20 pasos de posición en `DoomDreamerEnv`.
+*   **Detección de Atascos**: Si la posición neta no cambia significativamente en 20 pasos (choque con pared), se aplica una penalización.
+*   **Premio Real**: Se recompensa el alejamiento real del punto de origen, no la vibración o movimientos micro-oscilatorios.
+
+### [Fix] Auto-Detección de Arquitectura en Visualizador
+*   **Cambio**: `visualize.py` ahora escanea el `state_dict` para detectar automáticamente el tamaño del RSSM (`dyn_deter`).
+*   **Por qué**: Permite visualizar modelos escalados (1024 unidades) y modelos estándar (512 unidades) con el mismo script sin cambiar parámetros manuales.

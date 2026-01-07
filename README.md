@@ -29,6 +29,41 @@ A robust model-free baseline with sequential curriculum training.
   python src/doom_agent/algorithms/ppo/v5/train.py --scenario deadly_corridor
   ```
 
+## 📊 SOTA Benchmarking: Arnold
+This repository includes an integration of the **Arnold agent** (2017 ViZDoom Champion) as a State-of-the-Art benchmark.
+- **Location**: `external/arnold/` and `scripts/arnold_adapter.py`.
+- **Validation**: Compare Arnold's behavior against your reward shaping incentives using the "BOSS MODE" SPECTATOR.
+- **Usage**:
+  ```bash
+  python scripts/test_reward_shaping.py --arnold
+  ```
+
+## 🧠 SOTA Benchmarking: Intel DFP
+In addition to Arnold, we have integrated the **Intel Direct Future Prediction (DFP)** agent, winner of the 2016 ViZDoom Track 1.
+- **Location**: `external/dfp/` and `scripts/dfp_adapter.py`.
+- **Compatibility**: Legacy TensorFlow 1.x code automatically patched for TF 2.x execution using `compat.v1`.
+- **Usage**:
+  ```bash
+  # First time setup
+  bash scripts/setup_dfp.sh
+  # Run benchmark
+  python scripts/test_reward_shaping.py --dfp
+  ```
+
+## 🧪 Reward Shaping Validator
+A real-time tool to validate incentives (Hunger, Movement, Frags) before long training runs.
+- **Manual Mode**: Test the feel of your rewards by playing as the agent.
+- **AI Mode**: Evaluate a specific DreamerV3 checkpoint.
+- **Arnold Mode**: Benchmark against the legendary champion.
+- **Usage**:
+  ```bash
+  # Manual control (W/S/A/D/Q/E/Space)
+  python scripts/test_reward_shaping.py --manual
+
+  # AI Spectator (DreamerV3)
+  python scripts/test_reward_shaping.py --agent_run <RUN_ID>
+  ```
+
 ## Running code
 1) Install dependencies: `pip install -r requirements_tf_gpu.yaml` (legacy) or ensure `torch`, `vizdoom`, `opencv-python` are installed.
 2) Expose the source layout: `export PYTHONPATH="$(pwd)/src"`.

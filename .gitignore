@@ -111,3 +111,7 @@ dist/
 ############################
 *.log
 *.tmp
+
+# External Dependencies (Managed by setup scripts)
+external/arnold/
+external/dfp/

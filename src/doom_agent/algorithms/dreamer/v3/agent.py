@@ -157,6 +157,12 @@ class DreamerV3Agent:
         if deterministic is not None:
             eval_mode = deterministic
             
+        training = not eval_mode
+        if training and not self.agent.training:
+            self.agent.train()
+        elif not training and self.agent.training:
+            self.agent.eval()
+
         with torch.no_grad():
             # Ensure obs is (N, H, W, 1)
             if obs.ndim == 3:

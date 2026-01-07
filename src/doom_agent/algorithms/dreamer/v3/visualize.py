@@ -94,11 +94,22 @@ def main():
         obs_shape=detected_obs_shape
     )
     
+    # Auto-detect architectural scaling
+    detected_dyn_deter = 512
+    for key in state_dict.keys():
+        if 'dynamics.W' in key:
+            # W shape is [1, dyn_deter]
+            detected_dyn_deter = state_dict[key].shape[1]
+            break
+    
+    print(f"Detected dyn_deter={detected_dyn_deter} from checkpoint.")
+
     # Initialize Agent with detected shape
     agent_config = {
         'device': args.device,
         'action_dim': len(actions),
         'obs_shape': detected_obs_shape,
+        'dyn_deter': detected_dyn_deter,
         'compile': False,
     }
     

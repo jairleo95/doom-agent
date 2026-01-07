@@ -7,6 +7,7 @@ Similar to PPO v5 envs.py but adapted for Dreamer V3's requirements.
 import cv2
 import numpy as np
 from vizdoom import DoomGame, Mode, ScreenFormat, ScreenResolution, Button, GameVariable
+from collections import deque
 
 from doom_agent.paths import scenario_path
 
@@ -47,34 +48,34 @@ def preprocess_frame(frame, out_size=(64, 64), color=False):
 
 def deathmatch_actions():
     """Action list for deathmatch scenario."""
-    # [MOVE_LEFT, MOVE_RIGHT, ATTACK, MOVE_FORWARD, MOVE_BACKWARD, TURN_LEFT, TURN_RIGHT]
+    # Standard: [FWD, BWD, L, R, TL, TR, ATK]
     return [
-        [1, 0, 0, 0, 0, 0, 0],  # Move left
-        [0, 1, 0, 0, 0, 0, 0],  # Move right
-        [0, 0, 1, 0, 0, 0, 0],  # Attack
-        [0, 0, 0, 1, 0, 0, 0],  # Move forward
-        [0, 0, 0, 0, 1, 0, 0],  # Move backward
-        [0, 0, 0, 0, 0, 1, 0],  # Turn left
-        [0, 0, 0, 0, 0, 0, 1],  # Turn right
+        [1, 0, 0, 0, 0, 0, 0],  # 0: forward
+        [0, 1, 0, 0, 0, 0, 0],  # 1: backward
+        [0, 0, 1, 0, 0, 0, 0],  # 2: move left
+        [0, 0, 0, 1, 0, 0, 0],  # 3: move right
+        [0, 0, 0, 0, 1, 0, 0],  # 4: turn left
+        [0, 0, 0, 0, 0, 1, 0],  # 5: turn right
+        [0, 0, 0, 0, 0, 0, 1],  # 6: attack
     ]
 
 
 def deadly_corridor_actions():
     """Action list for deadly_corridor scenario."""
-    # [MOVE_LEFT, MOVE_RIGHT, ATTACK, MOVE_FORWARD, MOVE_BACKWARD, TURN_LEFT, TURN_RIGHT]
+    # Standard: [FWD, BWD, L, R, TL, TR, ATK]
     return [
-        [0, 0, 0, 1, 0, 0, 0],  # forward
-        [0, 0, 1, 0, 0, 0, 0],  # attack
-        [0, 0, 1, 1, 0, 0, 0],  # forward + attack
-        [0, 0, 0, 0, 0, 1, 0],  # turn left
-        [0, 0, 0, 0, 0, 0, 1],  # turn right
-        [0, 0, 1, 0, 0, 1, 0],  # turn left + attack
-        [0, 0, 1, 0, 0, 0, 1],  # turn right + attack
-        [1, 0, 0, 0, 0, 0, 0],  # strafe left
-        [0, 1, 0, 0, 0, 0, 0],  # strafe right
-        [0, 0, 0, 0, 1, 0, 0],  # backward
-        [0, 0, 0, 1, 0, 1, 0],  # forward + turn left
-        [0, 0, 0, 1, 0, 0, 1],  # forward + turn right
+        [1, 0, 0, 0, 0, 0, 0],  # forward
+        [0, 0, 0, 0, 0, 0, 1],  # attack
+        [1, 0, 0, 0, 0, 0, 1],  # forward + attack
+        [0, 0, 0, 0, 1, 0, 0],  # turn left
+        [0, 0, 0, 0, 0, 1, 0],  # turn right
+        [0, 0, 0, 0, 1, 0, 1],  # turn left + attack
+        [0, 0, 0, 0, 0, 1, 1],  # turn right + attack
+        [0, 0, 1, 0, 0, 0, 0],  # strafe left
+        [0, 0, 0, 1, 0, 0, 0],  # strafe right
+        [0, 1, 0, 0, 0, 0, 0],  # backward
+        [1, 0, 0, 0, 1, 0, 0],  # forward + turn left
+        [1, 0, 0, 0, 0, 1, 0],  # forward + turn right
     ]
 
 
@@ -202,12 +203,17 @@ class DoomDreamerEnv:
         self.last_x = 0.0
         self.last_y = 0.0
         
+        # History for stagnation detection and net displacement
+        self.pos_history = deque(maxlen=20)
+        self.stagnation_penalty = 0.1
+        
     def reset(self):
         """Reset environment and return initial observation."""
         self.game.new_episode()
         self.last_frag_count = 0
         self.last_health = 100.0
         self.last_ammo = 0.0
+        self.pos_history.clear()
         
         state = self.game.get_state()
         if state and len(state.game_variables) >= 3:
@@ -219,6 +225,7 @@ class DoomDreamerEnv:
             if len(state.game_variables) >= 5:
                 self.last_x = state.game_variables[3]
                 self.last_y = state.game_variables[4]
+                self.pos_history.append((self.last_x, self.last_y))
             
         # Cache color high-res version for video recorder
         if state and state.screen_buffer is not None:
@@ -227,28 +234,25 @@ class DoomDreamerEnv:
         return preprocess_frame(state.screen_buffer if state else None, self.out_size, color=self.color)
     
     def step(self, action_idx):
-        """
-        Take a step in the environment.
-        
-        Args:
-            action_idx: Index of action to take
-            
-        Returns:
-            obs: Preprocessed observation
-            reward: Reward for this step
-            done: Whether episode is finished
-        """
+        """Take a step using an action index."""
         action_vec = self.actions[action_idx]
-        
-        # If we have a button map, we need to translate the universal action vector
-        # to the scenario's specific button vector.
+        return self.step_manual(action_vec)
+    
+    def step_manual(self, action_vec):
+        """
+        Take a step using a manual action vector.
+        Handles translation, VizDoom execution, and reward shaping.
+        """
+        # (Implicitly uses the logic below, I'll update the return statement)
+        # 1. Translation (Universal Mapping)
         if self.button_map:
             actual_action = [0] * len(self.game.get_available_buttons())
             for i, mapped_idx in enumerate(self.button_map):
-                if mapped_idx is not None and action_vec[i] == 1:
+                if mapped_idx is not None and i < len(action_vec) and action_vec[i] == 1:
                     actual_action[mapped_idx] = 1
             action_vec = actual_action
             
+        # 2. Execution
         reward = self.game.make_action(action_vec, self.frame_skip)
         done = self.game.is_episode_finished()
         
@@ -259,49 +263,60 @@ class DoomDreamerEnv:
             if state and state.screen_buffer is not None:
                 self.last_high_res_render = robust_transpose(state.screen_buffer)
             
-            # Update gameplay variables for metrics
+            # 3. State update & Reward shaping
             if state and len(state.game_variables) >= 3:
-                self.last_frag_count = state.game_variables[0]
-                self.last_ammo = state.game_variables[1]
-                self.last_health = state.game_variables[2]
-            
-            obs = preprocess_frame(state.screen_buffer, self.out_size, color=self.color)
-            
-            # Reward shaping
-            if state and len(state.game_variables) >= 3:
-                # Frag bonus
+                # Basic variables
                 frag_count = state.game_variables[0]
+                ammo = state.game_variables[1]
+                health = state.game_variables[2]
+                
+                # Frag bonus
                 if frag_count > self.last_frag_count:
                     reward += (frag_count - self.last_frag_count) * self.frag_bonus
-                self.last_frag_count = frag_count
                 
                 # Ammo penalty
-                ammo = state.game_variables[1]
                 if ammo < self.last_ammo:
                     reward -= (self.last_ammo - ammo) * self.ammo_penalty
-                self.last_ammo = ammo
                 
                 # Health penalty
-                health = state.game_variables[2]
                 if health < self.last_health:
                     reward -= (self.last_health - health) * self.health_penalty
+                
+                # Update last state
+                self.last_frag_count = frag_count
+                self.last_ammo = ammo
                 self.last_health = health
 
-                # Movement reward (Anti-camping)
-                if self.movement_reward > 0 and len(state.game_variables) >= 5:
+                # Movement reward (Anti-camping & Anti-stuck)
+                if len(state.game_variables) >= 5:
                     x = state.game_variables[3]
                     y = state.game_variables[4]
-                    dx = x - self.last_x
-                    dy = y - self.last_y
-                    dist = np.sqrt(dx**2 + dy**2)
-                    reward += dist * self.movement_reward
+                    
+                    if len(self.pos_history) == self.pos_history.maxlen:
+                        old_x, old_y = self.pos_history[0]
+                        net_dist = np.sqrt((x - old_x)**2 + (y - old_y)**2)
+                        
+                        if net_dist > 5.0: 
+                            reward += net_dist * self.movement_reward
+                        elif self.movement_reward > 0:
+                            reward -= self.stagnation_penalty
+                            
+                    self.pos_history.append((x, y))
                     self.last_x = x
                     self.last_y = y
+            
+            obs = preprocess_frame(state.screen_buffer if state else None, self.out_size, color=self.color)
         else:
             obs = np.zeros(self.obs_shape, dtype=np.uint8)
         
-        return obs, reward, done
-    
+        info = {
+            'health': self.last_health,
+            'ammo': self.last_ammo,
+            'frags': self.last_frag_count
+        }
+        
+        return obs, reward, done, info
+
     def close(self):
         """Close the environment."""
         self.game.close()

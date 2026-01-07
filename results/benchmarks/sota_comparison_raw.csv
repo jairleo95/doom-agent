@@ -1,0 +1,11 @@
+Agent,Episode,Total Reward,Frags,Final Health,Steps
+Arnold,1,204.0,17.0,30.0,429
+Arnold,2,-1.0,0.0,1.0,81
+Arnold,3,-1.0,0.0,4.0,107
+Arnold,4,184.0,15.0,2.0,454
+Arnold,5,34.0,3.0,6.0,230
+Intel DFP,1,58.0,5.0,13.0,225
+Intel DFP,2,24.0,2.0,2.0,322
+Intel DFP,3,12.0,1.0,4.0,176
+Intel DFP,4,-1.0,0.0,54.0,74
+Intel DFP,5,34.0,3.0,1.0,182

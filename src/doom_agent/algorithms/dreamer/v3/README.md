@@ -79,9 +79,11 @@ python src/doom_agent/algorithms/dreamer/v3/train.py \
 
 - **Model-Based (DreamerV3)**: Learns world model for sample efficiency.
 - **Auto-Curriculum**: Dynamic stage transitions when agent reaches target reward.
-- **Movement Incentives**: Velocity-based rewards to discourage camping behavior.
-- **Architectural Scaling**: Optimized for 48GB+ VRAM (RTX 6000 Ada / 5090) with 1024-unit RSSM.
+- **Anti-Camping (Hunger)**: Negative living rewards force the agent to seek frags and explore.
+- **Anti-Stuck (Stagnation Penalty)**: Detects and penalizes geometry stalling using a position buffer.
+- **Architectural Scaling**: Optimized for 48GB+ VRAM (RTX 6000 Ada) with 1024-unit RSSM and auto-detection.
 - **Visual Robustness**: Random Crop augmentation for improved generalization.
+- **W&B Integration**: Dedicated scripts for downloading checkpoints and exporting metrics (History/Summary).
 - **RGB Training**: High-fidelity vision for complex environments.
 - **Stable ETA**: Precise time estimates using Exponential Moving Average (EMA).
 
@@ -96,6 +98,21 @@ dreamer/v3/
 ├── checkpoints/        # Model checkpoints
 └── videos/             # Episode GIFs
 ```
+
+## Analysis & Visualization
+
+### Visualize from W&B
+Download the latest checkpoint and watch the agent play locally:
+```bash
+./visualize_from_wandb.sh RUN_ID
+```
+
+### Export Metrics
+Export training history and final summaries to the repository:
+```bash
+python scripts/export_results.py --run_id RUN_ID --project doom-agent
+```
+This updates **[`RESULTS.md`](file:///home/darkstar/Workspace/ai/rl/doom-agent/RESULTS.md)** automatically.
 
 ## Testing
 

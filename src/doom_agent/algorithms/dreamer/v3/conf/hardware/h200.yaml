@@ -1,0 +1,30 @@
+# @package _global_
+# NVIDIA H200 SXM (141GB VRAM) - Ultimate SOTA Training
+# Optimized for maximum throughput and model capacity
+
+agent:
+  # Scaling throughput
+  n_envs: 18            # Maximize vCPUs (20 available)
+  batch_size: 256       # 4x compared to 3060/6000 scaling
+  batch_length: 128     # 4x sequence depth for long-term strategy
+  
+  # Hopper Architecture Optimizations
+  precision: 16         # Tensor Core BF16/FP16 optimized
+  compile: true         # Critical for H200 throughput
+  
+  # Training Density
+  train_every: 8        # High update frequency
+  train_steps: 1
+  prefill_steps: 50000  # Larger prefill for better initial world model
+  buffer_capacity: 2000000 # Leveraging 188GB System RAM
+  
+  # Massive Model Capacity (Hopper exclusive scale)
+  dyn_deter: 2048       # Double capacity for complex Deathmatch maps
+  units: 1024           # Dense layer scaling
+  layers: 5             # Deeper world model
+  imag_horizon: 25      # Planning further into the future
+  
+  # Exploration & RL Tuning
+  kl_scale: 0.5         # Balanced stability for large networks
+  actor_dist: "normal"
+  actor_entropy: 3e-4
