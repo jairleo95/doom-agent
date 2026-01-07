@@ -312,7 +312,9 @@ class DoomDreamerEnv:
         info = {
             'health': self.last_health,
             'ammo': self.last_ammo,
-            'frags': self.last_frag_count
+            'frags': self.last_frag_count,
+            'pos_x': self.last_x,
+            'pos_y': self.last_y
         }
         
         return obs, reward, done, info
