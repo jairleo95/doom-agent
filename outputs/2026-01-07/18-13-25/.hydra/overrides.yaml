@@ -1,0 +1,3 @@
+- scenario=deathmatch
+- agent.prefill_steps=10
+- agent.n_envs=1

@@ -221,7 +221,64 @@ def train_hydra(cfg: DictConfig):
         sequence_length=agent_config['batch_length'],
         obs_shape=tuple(agent_config['obs_shape'])
     )
+
+    # ---------------------------------------------------------
+    # Zero-Shot / Pre-training Phase (Behavior Cloning)
+    # ---------------------------------------------------------
+    enable_bc = cfg.agent.get('pretrain_bc', False)
+    pretrain_path = cfg.agent.get('pretrain_bc_path', None) 
+    pretrain_steps = cfg.agent.get('pretrain_steps', 0)
     
+    if enable_bc and pretrain_path and pretrain_steps > 0:
+        print(f"\n🔄 Starting Pre-training (BC) on {pretrain_path}")
+        print(f"   Steps: {pretrain_steps}, Batch: {cfg.agent.batch_size}")
+        
+        try:
+            from doom_agent.data.dataset import OfflineDoomDataset
+            from torch.utils.data import DataLoader
+            
+            # Initialize Dataset
+            bc_dataset = OfflineDoomDataset(
+                data_dir=pretrain_path,
+                seq_length=cfg.agent.batch_length,
+                action_dim=len(actions)
+            )
+            
+            # Create Loader
+            bc_loader = DataLoader(
+                bc_dataset, 
+                batch_size=cfg.agent.batch_size, 
+                num_workers=2, 
+                prefetch_factor=2
+            )
+            bc_iter = iter(bc_loader)
+            
+            print(f"   Dataset size: {len(bc_dataset)} sequences (approx)")
+            
+            for i in range(pretrain_steps):
+                try:
+                    batch = next(bc_iter)
+                except StopIteration:
+                    bc_iter = iter(bc_loader)
+                    batch = next(bc_iter)
+                
+                # Train step (Offline)
+                # DreamerV3Agent.train_step handles device transfer
+                metrics = agent.train_step(batch)
+                
+                if i % 100 == 0:
+                    print(f"   [Pretrain] Step {i}/{pretrain_steps} | Loss: {metrics.get('total_loss', 'N/A')}")
+                    
+            print("✅ Pre-training Complete. Agent initialized with expert behavior.")
+            
+            # Save pre-trained model
+            agent.save(str(ckpt_dir / "pretrained_bc.pt"))
+            
+        except Exception as e:
+            print(f"❌ Pre-training failed: {e}")
+            import traceback
+            traceback.print_exc()
+
     # Calculate total curriculum steps for ETA
     total_curriculum_steps = sum(s.timesteps for s in curriculum.stages)
     global_step = 0

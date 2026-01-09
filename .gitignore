@@ -63,9 +63,9 @@ replays/
 # Numpy / Data dumps
 ############################
 *.npy
-*.npz
-data/
-datasets/
+# *.npz
+/data/
+/datasets/
 
 ############################
 # Experiments / sweeps

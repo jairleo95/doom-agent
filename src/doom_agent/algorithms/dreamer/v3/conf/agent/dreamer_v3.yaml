@@ -19,3 +19,7 @@ dyn_deter: 512
 dyn_hidden: 512
 units: 512
 imag_horizon: 15
+# Behavior Cloning (Optional)
+pretrain_bc: false
+pretrain_bc_path: data/expert_replays
+pretrain_steps: 0

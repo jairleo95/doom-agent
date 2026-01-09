@@ -1,0 +1,5 @@
+- scenario=deathmatch
+- +agent.pretrain_bc_path=/home/darkstar/Workspace/ai/rl/doom-agent/data/expert_replays
+- +agent.pretrain_steps=5
+- agent.n_envs=1
+- agent.batch_size=2
