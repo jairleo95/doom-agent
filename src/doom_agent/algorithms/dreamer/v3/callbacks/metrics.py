@@ -25,7 +25,12 @@ class MetricsCallback:
             'episode_times': [],
             'world_model_losses': [],
             'actor_losses': [],
-            'critic_losses': []
+            'critic_losses': [],
+            'eval_mean_rewards': [],
+            'eval_mean_lengths': [],
+            'frags': [],
+            'health': [],
+            'ammo': []
         }
         
         os.makedirs(log_path, exist_ok=True)
@@ -54,9 +59,15 @@ class MetricsCallback:
                 'charts/episode': episode
             }
             if info:
-                if 'frags' in info: wb_data['gameplay/frags'] = info['frags']
-                if 'health' in info: wb_data['gameplay/health_remaining'] = info['health']
-                if 'ammo' in info: wb_data['gameplay/ammo_consumed'] = info['ammo']
+                if 'frags' in info: 
+                    wb_data['gameplay/frags'] = info['frags']
+                    self.metrics['frags'].append(info['frags'])
+                if 'health' in info: 
+                    wb_data['gameplay/health_remaining'] = info['health']
+                    self.metrics['health'].append(info['health'])
+                if 'ammo' in info: 
+                    wb_data['gameplay/ammo_consumed'] = info['ammo']
+                    self.metrics['ammo'].append(info['ammo'])
             wandb.log(wb_data, step=step)
 
         # Detailed gameplay metrics if provided
@@ -106,6 +117,10 @@ class MetricsCallback:
             self.metrics['actor_losses'].append(kwargs['actor_loss'])
         if 'critic_loss' in kwargs:
             self.metrics['critic_losses'].append(kwargs['critic_loss'])
+        if 'eval_mean_reward' in kwargs:
+            self.metrics['eval_mean_rewards'].append(kwargs['eval_mean_reward'])
+        if 'eval_mean_length' in kwargs:
+            self.metrics['eval_mean_lengths'].append(kwargs['eval_mean_length'])
     
     def save(self):
         """Save metrics to file."""

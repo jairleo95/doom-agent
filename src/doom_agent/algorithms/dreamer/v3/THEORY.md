@@ -32,22 +32,13 @@ The agent maintains a latent state $(h_t, z_t)$ where:
 
 - **Architecture**: DRQN (Deep Recurrent Q-Network).
 - **Key Innovation**: Augmented the agent with secondary game features (e.g., enemy detection, item presence) and used separate networks for navigation and combat.
-- **Performance**: Won the 2017 VizDoom AI Competition.
 
 ### Direct Future Prediction (DFP, 2016)
 
 [Dosovitskiy & Koltun, "Learning to Act by Predicting the Future"]
 
 - **Architecture**: Specialized Multi-Objective branch.
-- **Key Innovation**: Bypassed standard Reinforcement Learning (Bellman equations) in favor of supervised-style prediction of "future measurements" (Health, Ammo, Frags) at multiple time offsets.
-- **Performance**: Dominant baseline in early VizDoom research.
-
-### Sample Factory (2020/2022)
-
-[Petrenko et al., "High-throughput 3D Control with Parallel Reinforcement Learning"]
-
-- **Architecture**: High-performance APPO (Asynchronous Proximal Policy Optimization).
-- **Contribution**: Proved that specialized, high-throughput model-free architectures can reach extreme performance by processing billions of frames per day.
+- **Key Innovation**: Bypassed standard Reinforcement Learning (Bellman equations) in favor of supervised-style prediction of "future measurements" (Health, Ammo, Frags).
 
 ---
 
@@ -55,24 +46,54 @@ The agent maintains a latent state $(h_t, z_t)$ where:
 
 Directly applying RL in sparse reward environments like VizDoom Deathmatch often leads to slow convergence (the "Cold Start" problem).
 
-### Behavioral Cloning Pipeline
+### Mathematical Formulation
 
-$L_{BC} = \mathbb{E}_{(s,a) \sim \mathcal{D}_{expert}} [-\log \pi(a|s)]$
+$L_{BC}(\theta) = \mathbb{E}_{(s,a) \sim \mathcal{D}_{expert}} [-\log \pi_{\theta}(a|s)]$
 
-We utilize **Arnold** to harvest successful trajectories. By initializing the DreamerV3 Actor network via BC, the agent starts its interaction phase already knowing how to:
+El **Behavioral Cloning (BC)** es la forma más simple de Imitation Learning, donde se trata el aprendizaje como un problema de aprendizaje supervisado. Esta técnica tiene sus raíces en pioneros como **ALVINN** (Pomerleau, 1989).
 
-1. Search for enemies.
-2. Maintain aim stability.
-3. Prioritize survival (strafing).
+Sin embargo, el BC puro sufre de **compounding errors**. Soluciones modernas como **DAgger** (Ross et al., 2011) o el uso de IL como bootstrap para RL (como en **AlphaStar**, Vinyals et al. 2019), permiten mitigar estos fallos en entornos estratégicos.
 
-This "Jumpstart" significantly reduces the number of environment interactions needed to reach champion-level performance.
+### Flujo de Entrenamiento: Pre-training + RL
+
+```mermaid
+sequenceDiagram
+    participant D as ExpertData (Arnold)
+    participant T as Trainer/DataLoader
+    participant A as DreamerV3 Agent
+    participant E as VizDoom Env
+    participant B as ReplayBuffer
+
+    Note over D,A: Phase 1: Imitation Learning (Offline BC)
+    loop Pretrain Steps
+        D->>T: Fetch (Obs, Expert Action)
+        T->>A: train_step(batch)
+        A->>A: Update Actor Policy (MLE)
+    end
+
+    Note over T,B: Phase 2: Reinforcement Learning (Online RL)
+    loop RL Training Steps
+        E->>T: Provide Obs
+        T->>A: act(obs)
+        A->>A: World Model Prediction/Planning
+        A->>T: Return Action
+        T->>E: step(action)
+        E->>T: obs, reward, done
+        T->>B: Store Transition
+        B->>T: Sample Batch
+        T->>A: train_step(batch)
+        A->>A: Update WM, Critic, Actor
+    end
+```
 
 ---
 
 ## 4. Academic References
 
-- **DreamerV3**: Hafner, D., Pasukonis, J., Ba, J., & Lillicrap, T. (2023). Mastering Diverse Domains through World Models. *arXiv preprint arXiv:2301.04104*.
-- **Arnold**: Lample, G., & Chaplot, D. S. (2017). Playing FPS games with deep reinforcement learning. In *Thirty-First AAAI Conference on Artificial Intelligence*.
-- **DFP**: Dosovitskiy, A., & Koltun, V. (2016). Learning to act by predicting the future. *arXiv preprint arXiv:1611.01779*.
-- **Sample Factory**: Petrenko, A., Huang, Z., Kumar, T., Sukhatme, G., & Koltun, V. (2020). Sample factory: Egg-centric high-throughput 3D control. *International Conference on Machine Learning*.
-- **ViZDoom**: Wydmuch, M., Kempka, M., & Jaśkowski, G. (2018). ViZDoom: A Doom-based AI research platform for visual reinforcement learning. *IEEE Transactions on Games*.
+- **DreamerV3**: Hafner et al. (2023). Mastering Diverse Domains through World Models. *arXiv:2301.04104*.
+- **Arnold**: Lample & Chaplot (2017). Playing FPS games with deep RL. *AAAI*.
+- **DFP**: Dosovitskiy & Koltun (2016). Learning to act by predicting the future. *arXiv:1611.01779*.
+- **AlphaStar**: Vinyals et al. (2019). Grandmaster level in StarCraft II. *Nature*.
+- **ALVINN**: Pomerleau (1988). Autonomous land vehicle in a neural network. *NIPS*.
+- **DAgger**: Ross et al. (2011). No-regret online learning for IL. *AISTATS*.
+- **ViZDoom**: Wydmuch et al. (2018). ViZDoom: A Doom-based AI research platform. *IEEE ToG*.

@@ -23,3 +23,7 @@ imag_horizon: 15
 pretrain_bc: false
 pretrain_bc_path: data/expert_replays
 pretrain_steps: 0
+
+# Augmentations & Logic
+symmetry: true
+reward_shaping: true

@@ -146,7 +146,14 @@ def train_hydra(cfg: DictConfig):
     # Select Curriculum from Hydra config
     stages = []
     for s_cfg in cfg.scenario.curriculum.stages:
-        stages.append(Stage(**s_cfg))
+        s_dict = dict(s_cfg)
+        # Global Reward Shaping Ablation
+        if not cfg.agent.get('reward_shaping', True):
+            s_dict['health_penalty'] = 0.0
+            s_dict['ammo_penalty'] = 0.0
+            s_dict['movement_reward'] = 0.0
+            s_dict['living_reward'] = 0.0
+        stages.append(Stage(**s_dict))
     
     curriculum = Curriculum(
         name=cfg.scenario.name,
@@ -157,10 +164,17 @@ def train_hydra(cfg: DictConfig):
     actions = get_action_set(cfg.scenario.name)
     
     # Setup Paths
-    base_dir = Path(__file__).resolve().parent
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S") + "_dreamer"
-    log_dir = base_dir / "runs" / cfg.scenario.name / run_id
-    ckpt_dir = base_dir / "checkpoints" / cfg.scenario.name / run_id
+    
+    # Respect Hydra's run directory if specified, otherwise use default
+    if cfg.get('hydra_managed', False) or 'results/ablations' in os.getcwd():
+        log_dir = Path(os.getcwd())
+        ckpt_dir = log_dir / "checkpoints"
+    else:
+        base_dir = Path(__file__).resolve().parent
+        log_dir = base_dir / "runs" / cfg.scenario.name / run_id
+        ckpt_dir = base_dir / "checkpoints" / cfg.scenario.name / run_id
+    
     video_dir = ckpt_dir / "videos"
     
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -367,7 +381,7 @@ def train_hydra(cfg: DictConfig):
                 
                 step_results = [e.step(a)() for e, a in zip(train_envs, actions_vec)]
                 
-                for i, (next_obs, reward, done) in enumerate(step_results):
+                for i, (next_obs, reward, done, info) in enumerate(step_results):
                     replay_buffer.add(obs_list[i], actions_vec[i], reward, float(done), is_first_list[i])
                     obs_list[i] = next_obs
                     is_first_list[i] = done
@@ -427,7 +441,7 @@ def train_hydra(cfg: DictConfig):
                 
                 # We do the actual training. PyTorch handles GPU asynchrony.
                 for _ in range(num_batches):
-                    do_flip = np.random.random() < 0.5
+                    do_flip = (np.random.random() < 0.5) if cfg.agent.get('symmetry', True) else False
                     batch = replay_buffer.sample(cfg.agent.batch_size, horizontal_flip=do_flip)
                     if batch:
                         if do_flip: batch['action'] = flip_actions(batch['action'])
@@ -450,7 +464,7 @@ def train_hydra(cfg: DictConfig):
             step_results = [f() for f in step_futures]
             
             # Process results from the steps just finished
-            for i, (next_obs, reward, done) in enumerate(step_results):
+            for i, (next_obs, reward, done, info) in enumerate(step_results):
                 replay_buffer.add(obs_list[i], actions_vec[i], reward, float(done), is_first_list[i])
                 
                 env_episode_rewards[i] += reward
@@ -463,12 +477,15 @@ def train_hydra(cfg: DictConfig):
                     episode_count += 1
                     ep_duration = time.time() - env_episode_start_times[i]
                     
-                    info = {
-                        'frags': getattr(train_envs[i], 'last_frag_count', 0),
-                        'health': getattr(train_envs[i], 'last_health', 0),
-                        'ammo': getattr(train_envs[i], 'last_ammo', 0)
-                    }
-                    if hasattr(info['frags'], '__call__'): info['frags'] = info['frags']()
+                    # Use info returned from step for more reliable tracking
+                    if info is None:
+                        info = {
+                            'frags': getattr(train_envs[i], 'last_frag_count', 0),
+                            'health': getattr(train_envs[i], 'last_health', 0),
+                            'ammo': getattr(train_envs[i], 'last_ammo', 0)
+                        }
+                    
+                    if hasattr(info.get('frags'), '__call__'): info['frags'] = info['frags']()
                     if hasattr(info['health'], '__call__'): info['health'] = info['health']()
                     if hasattr(info['ammo'], '__call__'): info['ammo'] = info['ammo']()
                     
