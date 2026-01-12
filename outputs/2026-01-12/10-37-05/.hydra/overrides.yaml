@@ -1,0 +1,3 @@
+- scenario=deathmatch
+- agent.pretrain_bc=true
+- agent.pretrain_steps=50000

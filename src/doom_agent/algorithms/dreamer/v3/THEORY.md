@@ -1,43 +1,78 @@
-# DreamerV3: Dominando Dominios Diversos con Modelos del Mundo
+# 🧠 Scientific Foundation: World Models & Imitation Learning in VizDoom
 
-DreamerV3 es un algoritmo de Reinforcement Learning (RL) basado en model-based learning que destaca por su capacidad de entrenar agentes en una enorme variedad de dominios (desde control continuo hasta tareas visuales complejas como Doom) con un único conjunto de hiperparámetros fijos.
+This document explains the theoretical underpinnings of the agents used in this research, specifically focusing on the transition from specialized architectures to general-purpose World Models.
 
-## Arquitectura Principal: El Modelo del Mundo (World Model)
+## 1. Dreamer V3: Mastering Diverse Domains
 
-A diferencia de PPO, que aprende directamente de la experiencia, DreamerV3 aprende a "soñar". Construye un modelo interno del entorno compuesto por:
+[Hafner et al., 2023]
 
-### 1. Percepción y Codificación
-- **Encoder (CNN)**: Transforma las imágenes de entrada (e.g., frames de Doom) en representaciones de características compactas.
-- **SymLog Transformation**: Aplica `symlog(x) = sign(x) * ln(|x| + 1)` a las entradas (particularmente recompensas) para manejar magnitudes diversas sin inestabilidad numérica.
+DreamerV3 builds upon the Model-Based Reinforcement Learning (MBRL) paradigm. Unlike Model-Free agents (PPO, DQN) that learn a direct mapping from observations to actions, Dreamer learns a **World Model** to simulate the environment.
 
-### 2. Recurrent State-Space Model (RSSM)
-El núcleo de la "memoria" del agente. Se descompone en:
-- **Estado Determinista ($h_t$)**: Procesado por una GRU. Mantiene la historia a largo plazo.
-- **Estado Estocástico ($z_t$)**: Representado por **variables categóricas discretas** (32 opciones x 32 clases).
-  - *¿Por qué Discreto?* A diferencia de VAEs Gaussianos, las latentes discretas evitan que la varianza colapse a cero y obligan al modelo a capturar información semántica en lugar de ruido de píxeles.
-- **Dinámica**:
-  - *Posterior* $q(z_t | h_t, x_t)$: Infiere el estado actual viendo la imagen real.
-  - *Prior* $p(z_t | h_t)$: Predice el estado actual basándose solo en la historia (imaginación).
-  - **Objetivo KL**: Se minimiza la divergencia KL entre el Posterior y el Prior, enseñando al modelo a predecir el futuro sin ver la imagen.
+### Recurrent State-Space Model (RSSM)
 
-### 3. Cabezas de Predicción (Heads)
-- **Decoder**: Reconstruye la imagen desde el estado latente ($h_t, z_t$).
-- **Predictor de Recompensa**: Estima $R_t$.
-- **Predictor de Continuación**: Estima $\gamma_t$ (probabilidad de no morir/terminar).
+The agent maintains a latent state $(h_t, z_t)$ where:
 
-## Aprendizaje de Conducta (Actor-Critic)
+- **$h_t$ (Deterministic)**: A GRU-based history representation.
+- **$z_t$ (Stochastic)**: Categorical variables (32x32) that represent discrete concepts. Discretization prevents the world model from collapsing and improves robustness to pixel-level noise.
 
-Una vez que el mundo se entiende, el agente aprende a actuar dentro de la simulación mental:
-- **Imaginación**: Se despliegan trayectorias de ~15 pasos en el espacio latente usando el Prior.
-- **Crítico (Value Network)**: Predice el retorno esperado (V-value) de los estados imaginados. Usa **Two-Hot Encoding** para predecir distribuciones de valor en lugar de una media simple, mejorando la estabilidad.
-- **Actor (Policy Network)**: Maximiza el retorno esperado. Los gradientes fluyen a través de la dinámica del mundo (backpropagation through time), permitiendo una optimización mucho más eficiente que Policy Gradient estándar (REINFORCE).
+### Components
 
-## Innovaciones Clave de la V3
-1.  **Geometric Balancing**: Equilibra automáticamente las pérdidas de reconstrucción, dinámica y KL sin necesidad de ajustar pesos ($\beta$) manualmente.
-2.  **Free Bits**: Se reserva un presupuesto de entropía libre para evitar el sobreajuste del Prior.
-3.  **Mastering from Pixels**: Eficiencia de muestra superior en entornos visuales complejos como Doom Deathmatch.
+1. **Encoder/Decoder**: Maps pixels to latents and back. Uses **SymLog** scaling to handle rewards and observations of varying magnitudes.
+2. **Dynamics (Prior)**: Learns to predict $p(z_{t+1}|h_t, a_t)$ without seeing the next frame.
+3. **Representations (Posterior)**: Learns $q(z_t|h_t, x_t)$ by seeing the actual observation.
+4. **Behavior Learning**: The agent trains in **Imagination** for ~15 steps into the future, using its internal world model to optimize an Actor-Critic pair.
 
-## ¿Por qué esta arquitectura para Doom?
-- **Ocultación Parcial**: El RSSM recuerda enemigos que pasaron detrás de una pared (memoria recurrente).
-- **Predicción de Riesgo**: Al simular el futuro, el agente "siente" el daño antes de recibirlo si entra en una zona peligrosa.
-- **Generalización**: Al aprender la estructura del juego (física, reglas) en lugar de solo reacciones, se adapta mejor a mapas nuevos.
+---
+
+## 2. Historical SOTA Baselines
+
+### Arnold (2017)
+
+[Lample & Chaplot, "Playing FPS Games with Deep Reinforcement Learning"]
+
+- **Architecture**: DRQN (Deep Recurrent Q-Network).
+- **Key Innovation**: Augmented the agent with secondary game features (e.g., enemy detection, item presence) and used separate networks for navigation and combat.
+- **Performance**: Won the 2017 VizDoom AI Competition.
+
+### Direct Future Prediction (DFP, 2016)
+
+[Dosovitskiy & Koltun, "Learning to Act by Predicting the Future"]
+
+- **Architecture**: Specialized Multi-Objective branch.
+- **Key Innovation**: Bypassed standard Reinforcement Learning (Bellman equations) in favor of supervised-style prediction of "future measurements" (Health, Ammo, Frags) at multiple time offsets.
+- **Performance**: Dominant baseline in early VizDoom research.
+
+### Sample Factory (2020/2022)
+
+[Petrenko et al., "High-throughput 3D Control with Parallel Reinforcement Learning"]
+
+- **Architecture**: High-performance APPO (Asynchronous Proximal Policy Optimization).
+- **Contribution**: Proved that specialized, high-throughput model-free architectures can reach extreme performance by processing billions of frames per day.
+
+---
+
+## 3. Imitation Learning: Behavior Cloning (BC)
+
+Directly applying RL in sparse reward environments like VizDoom Deathmatch often leads to slow convergence (the "Cold Start" problem).
+
+### Behavioral Cloning Pipeline
+
+$L_{BC} = \mathbb{E}_{(s,a) \sim \mathcal{D}_{expert}} [-\log \pi(a|s)]$
+
+We utilize **Arnold** to harvest successful trajectories. By initializing the DreamerV3 Actor network via BC, the agent starts its interaction phase already knowing how to:
+
+1. Search for enemies.
+2. Maintain aim stability.
+3. Prioritize survival (strafing).
+
+This "Jumpstart" significantly reduces the number of environment interactions needed to reach champion-level performance.
+
+---
+
+## 4. Academic References
+
+- **DreamerV3**: Hafner, D., Pasukonis, J., Ba, J., & Lillicrap, T. (2023). Mastering Diverse Domains through World Models. *arXiv preprint arXiv:2301.04104*.
+- **Arnold**: Lample, G., & Chaplot, D. S. (2017). Playing FPS games with deep reinforcement learning. In *Thirty-First AAAI Conference on Artificial Intelligence*.
+- **DFP**: Dosovitskiy, A., & Koltun, V. (2016). Learning to act by predicting the future. *arXiv preprint arXiv:1611.01779*.
+- **Sample Factory**: Petrenko, A., Huang, Z., Kumar, T., Sukhatme, G., & Koltun, V. (2020). Sample factory: Egg-centric high-throughput 3D control. *International Conference on Machine Learning*.
+- **ViZDoom**: Wydmuch, M., Kempka, M., & Jaśkowski, G. (2018). ViZDoom: A Doom-based AI research platform for visual reinforcement learning. *IEEE Transactions on Games*.
