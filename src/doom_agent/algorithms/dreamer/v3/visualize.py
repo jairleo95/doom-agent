@@ -138,7 +138,7 @@ def main():
                 # env.reset() returns (H, W, C)
                 action_idx = agent.select_action(obs, eval_mode=True, is_first=(steps==0))
                 
-                obs, reward, done = env.step(action_idx)
+                obs, reward, done, info = env.step(action_idx)
                 total_reward += reward
                 steps += 1
                 

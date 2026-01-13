@@ -77,7 +77,7 @@ class VideoRecorderCallback:
             while not done:
                 frames.append(self._obs_to_frame(obs))
                 action = self.agent.select_action(obs, eval_mode=True)
-                obs, reward, done = self.eval_env.step(action)
+                obs, reward, done, info = self.eval_env.step(action)
 
         if frames:
             save_file = os.path.join(self.save_path, f"{self.name_prefix}{suffix}.gif")

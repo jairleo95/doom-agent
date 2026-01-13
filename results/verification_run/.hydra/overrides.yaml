@@ -1,0 +1,9 @@
+- scenario=deathmatch
+- agent.pretrain_bc=true
+- agent.pretrain_steps=5000
+- agent.pretrain_bc_path=data/expert_replays
+- agent.n_envs=12
+- device=cuda
+- wandb.enabled=true
+- wandb.name=verification_short_run
+- scenario.curriculum.stages.0.timesteps=20000

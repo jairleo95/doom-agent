@@ -1,0 +1,55 @@
+agent:
+  obs_shape:
+  - 64
+  - 64
+  - 3
+  action_dim: 12
+  batch_size: 32
+  batch_length: 32
+  train_every: 1
+  train_steps: 1
+  prefill_steps: 5000
+  expl_until: 0
+  expl_behavior: greedy
+  precision: 16
+  compile: false
+  grayscale: false
+  device: ${device}
+  n_envs: 12
+  dyn_deter: 512
+  dyn_hidden: 512
+  units: 512
+  imag_horizon: 15
+  pretrain_bc: true
+  pretrain_bc_path: data/expert_replays
+  pretrain_steps: 5000
+  symmetry: true
+  reward_shaping: true
+scenario:
+  name: deathmatch
+  scenario_name: deathmatch
+  curriculum:
+    stages:
+    - name: skill3
+      timesteps: 20000
+      doom_skill: 3
+      living_reward: 0.0
+      frame_skip: 4
+      health_penalty: 0.1
+      ammo_penalty: 0.01
+      frag_bonus: 10.0
+device: cuda
+seed: 0
+resume: null
+start_stage: 0
+video_freq: 50000
+visualize: false
+wandb:
+  enabled: true
+  project: doom-agent
+  entity: jairleo95
+  group: dreamer-v3
+  name: verification_short_run
+  mode: online
+  save_artifacts: true
+  save_best_only: true

@@ -1,5 +1,6 @@
 import os
 import json
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
@@ -17,7 +18,7 @@ def load_metrics(path):
     with open(metrics_file, "r") as f:
         return json.load(f)
 
-def analyze_ablations(base_dir="results/ablations"):
+def analyze_ablations(base_dir="results/ablations", baseline_name="baseline"):
     base_path = Path(base_dir)
     if not base_path.exists():
         print(f"Error: Directory {base_dir} not found.")
@@ -36,16 +37,22 @@ def analyze_ablations(base_dir="results/ablations"):
         else:
             print(f"Warning: No metrics found for {name}")
 
-    if "baseline" not in results:
-        print("Error: 'baseline' run not found. Cannot perform T-tests.")
-        return
+    if baseline_name not in results:
+        # Try finding a run that contains 'baseline' in its name
+        fallback = [n for n in results.keys() if "baseline" in n]
+        if fallback:
+            baseline_name = fallback[0]
+            print(f"Using fallback baseline: {baseline_name}")
+        else:
+            print(f"Error: Baseline run '{baseline_name}' not found. Found: {list(results.keys())}")
+            return
 
-    baseline_rewards = results["baseline"].get("eval_mean_rewards", [])
+    baseline_rewards = results[baseline_name].get("eval_mean_rewards", [])
     if not baseline_rewards:
         # Fallback to episode rewards if eval not available
-        baseline_rewards = results["baseline"].get("episode_rewards", [])
+        baseline_rewards = results[baseline_name].get("episode_rewards", [])
 
-    print("# DreamerV3 Ablation Study Comparison\n")
+    print(f"# DreamerV3 Ablation Study Comparison (Baseline: {baseline_name})\n")
     print("| Variant | Mean Reward | Mean Frags | Δ Baseline | P-Value (T-Test) |")
     print("| :--- | :--- | :--- | :--- | :--- |")
 
@@ -59,7 +66,7 @@ def analyze_ablations(base_dir="results/ablations"):
         mean_frags = np.mean(frags) if frags else 0
         
         # T-Test vs Baseline
-        if name != "baseline":
+        if name != baseline_name:
             t_stat, p_val = stats.ttest_ind(baseline_rewards, rewards, equal_var=False)
             delta = mean_reward - np.mean(baseline_rewards)
             p_str = f"{p_val:.4f}" if not np.isnan(p_val) else "N/A"
@@ -86,4 +93,9 @@ def analyze_ablations(base_dir="results/ablations"):
     print(f"\nPlot saved to: {plot_path}")
 
 if __name__ == "__main__":
-    analyze_ablations()
+    parser = argparse.ArgumentParser(description="Analyze DreamerV3 Ablation Results")
+    parser.add_argument("--dir", type=str, default="results/ablations", help="Base directory for ablations")
+    parser.add_argument("--baseline", type=str, default="baseline", help="Name of the baseline run")
+    args = parser.parse_args()
+    
+    analyze_ablations(base_dir=args.dir, baseline_name=args.baseline)

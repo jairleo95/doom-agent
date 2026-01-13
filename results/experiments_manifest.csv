@@ -1,0 +1,5 @@
+RunID,Date,Scenario,Curriculum,Policy,Model,LogDir
+20260112-124133_dreamer,2026-01-12T12:41:33.867611,deathmatch,deathmatch,DreamerV3,RSSM,/home/darkstar/Workspace/ai/rl/doom-agent/results/ablations/test_baseline
+20260112-124857_dreamer,2026-01-12T12:48:57.268267,deathmatch,deathmatch,DreamerV3,RSSM,/home/darkstar/Workspace/ai/rl/doom-agent/results/ablations/test_no_bc
+20260112-213536_dreamer,2026-01-12T21:35:36.745895,deathmatch,deathmatch,DreamerV3,RSSM,/home/darkstar/Workspace/ai/rl/doom-agent/results/verification/baseline
+20260112-220736_dreamer,2026-01-12T22:07:36.189940,deathmatch,deathmatch,DreamerV3,RSSM,/home/darkstar/Workspace/ai/rl/doom-agent/results/verification/no_bc

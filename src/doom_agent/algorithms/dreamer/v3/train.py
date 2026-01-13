@@ -14,6 +14,7 @@ from dataclasses import asdict
 
 import torch
 import hydra
+from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
 
 try:
@@ -166,10 +167,14 @@ def train_hydra(cfg: DictConfig):
     # Setup Paths
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S") + "_dreamer"
     
-    # Respect Hydra's run directory if specified, otherwise use default
-    if cfg.get('hydra_managed', False) or 'results/ablations' in os.getcwd():
-        log_dir = Path(os.getcwd())
+    # Respect Hydra's output directory (useful for sweeps or explicit run.dir)
+    h_cfg = HydraConfig.get()
+    if h_cfg and h_cfg.runtime.output_dir:
+        log_dir = Path(h_cfg.runtime.output_dir)
         ckpt_dir = log_dir / "checkpoints"
+        # Only print if we are not in the default project root
+        if log_dir != Path.cwd():
+             print(f"Hydra-managed directory detected: {log_dir}")
     else:
         base_dir = Path(__file__).resolve().parent
         log_dir = base_dir / "runs" / cfg.scenario.name / run_id

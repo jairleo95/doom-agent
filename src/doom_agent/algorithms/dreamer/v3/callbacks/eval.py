@@ -44,7 +44,7 @@ class EvalCallback:
             
             while not done:
                 action = self.agent.select_action(obs, eval_mode=True)
-                obs, reward, done = self.eval_env.step(action)
+                obs, reward, done, info = self.eval_env.step(action)
                 episode_reward += reward
                 episode_length += 1
             

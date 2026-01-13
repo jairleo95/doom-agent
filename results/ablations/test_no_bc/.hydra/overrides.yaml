@@ -1,0 +1,8 @@
+- scenario=deathmatch
+- agent.pretrain_bc_path=data/expert_replays
+- device=cuda
+- agent.n_envs=1
+- wandb.enabled=false
+- wandb.name=ablation_test_no_bc
+- agent.pretrain_bc=false
+- scenario.curriculum.stages.0.timesteps=1000
