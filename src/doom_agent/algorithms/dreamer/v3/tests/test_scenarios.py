@@ -2,23 +2,16 @@
 """
 Integration Tests for All DreamerV3 Scenarios
 Runs a short training loop for each scenario to ensure no runtime errors.
+Uses subprocess to avoid global state pollution and test the script entry point directly.
 """
 
 import sys
 import unittest
-from pathlib import Path
-import torch
+import subprocess
 import shutil
 import tempfile
-
-# Add src to path
-# Assuming this script is in src/doom_agent/algorithms/dreamer/v3/tests/
-sys.path.append(str(Path(__file__).resolve().parents[6] / "src"))
-# Local import fix
-sys.path.append(str(Path(__file__).resolve().parent))
-
-from doom_agent.algorithms.dreamer.v3.train import main as train_main
-from unittest.mock import patch
+import os
+from pathlib import Path
 
 class TestScenarios(unittest.TestCase):
     
@@ -26,61 +19,70 @@ class TestScenarios(unittest.TestCase):
         # Create a temp dir for logs to avoid clutter
         self.test_dir = tempfile.mkdtemp()
         
+        # Resolve python executable and train script
+        self.python_exe = sys.executable
+        # Assuming we are in src/doom_agent/.../tests/
+        project_root = Path(__file__).resolve().parents[6]
+        self.train_script = project_root / "src/doom_agent/algorithms/dreamer/v3/train.py"
+        self.src_dir = project_root / "src"
+        
     def tearDown(self):
         shutil.rmtree(self.test_dir)
         
     def run_scenario(self, scenario_name):
         print(f"\nTesting Scenario: {scenario_name}")
-        # Run 1 step of training for 1 episode (minimal dry run)
-        # We mock sys.argv
-        args = [
-            "train.py",
-            "--scenario", scenario_name,
-            "--batch-size", "2", # Small batch
-            "--batch-length", "4", # Short seq
-            "--buffer-capacity", "100",
-            "--prefill-steps", "10", # Minimal prefill
-            "--train-every", "5",
-            "--video-freq", "10", # Trigger video recording during test
-            "--device", "cpu" # Force CPU for testing
+        
+        # Improvements: Run for minimal steps to check crash loop
+        # Hydra syntax for overrides
+        cmd = [
+            self.python_exe, str(self.train_script),
+            f"scenario={scenario_name}",
+            "agent.batch_size=2",
+            "agent.batch_length=4",
+            "agent.prefill_steps=10",
+            "agent.train_every=5",
+            "agent.n_envs=1",
+            "device=cpu",
+            f"hydra.run.dir={self.test_dir}/{scenario_name}",
+            # Override curriculum to be extremely short
+            # Override curriculum to be extremely short
+            "scenario.curriculum.stages.0.timesteps=5"
         ]
         
-        with patch.object(sys, 'argv', args):
-            # Hack: Patch argparse in train.py? No, main() parses sys.argv.
-            # But main() catches sys.exit? No.
-            # We need to ensure main() doesn't run forever.
-            # train.py loops based on curriculum.
-            # We can't easily modify the curriculum loop from outside.
-            # BUT we can modify the CURRICULUM object itself before calling main!
-            
-            from doom_agent.algorithms.dreamer.v3 import train
-            from doom_agent.algorithms.dreamer.v3.curriculum import Stage, Curriculum
-            
-            # Override curriculum to be extremely short
-            mock_curriculum = Curriculum(
-                name=f"test_{scenario_name}",
-                scenario=f"{scenario_name}.cfg",
-                stages=[
-                    Stage(
-                        name="test_stage",
-                        timesteps=20, # Run for 20 steps only
-                        doom_skill=1,
-                        living_reward=0.0
-                    )
-                ]
+        # Add stage overrides based on scenario
+        if scenario_name == "defend_the_center":
+            cmd.append("scenario.curriculum.stages.1.timesteps=5")
+        elif scenario_name == "deadly_corridor":
+             cmd.append("scenario.curriculum.stages.1.timesteps=5")
+             cmd.append("scenario.curriculum.stages.2.timesteps=5")
+        elif scenario_name == "deathmatch":
+             # deathmatch.yaml is single stage
+             pass
+        
+        # Ensure PYTHONPATH is set so that imports work
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(self.src_dir) + ":" + env.get("PYTHONPATH", "")
+        
+        # Run process with timeout
+        try:
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=env,
+                text=True,
+                timeout=180  # 180 seconds timeout
             )
             
-            # Patch the constants in train module
-            if scenario_name == 'deathmatch':
-                with patch.object(train, 'DEATHMATCH_CURRICULUM', mock_curriculum):
-                    train.main()
-            elif scenario_name == 'deadly_corridor':
-                with patch.object(train, 'DEADLY_CORRIDOR_CURRICULUM', mock_curriculum):
-                    train.main()
-            elif scenario_name == 'defend_the_center':
-                with patch.object(train, 'DEFEND_CENTER_CURRICULUM', mock_curriculum):
-                    train.main()
-                    
+            if result.returncode != 0:
+                print(f"STDOUT:\n{result.stdout}")
+                print(f"STDERR:\n{result.stderr}")
+                
+            self.assertEqual(result.returncode, 0, f"Training failed for {scenario_name}")
+            
+        except subprocess.TimeoutExpired as e:
+            self.fail(f"Training timed out for {scenario_name} after 180s. STDOUT: {e.stdout} STDERR: {e.stderr}")
+        
     def test_deathmatch(self):
         self.run_scenario("deathmatch")
         

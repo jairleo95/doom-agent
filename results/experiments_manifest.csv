@@ -3,3 +3,6 @@ RunID,Date,Scenario,Curriculum,Policy,Model,LogDir
 20260112-124857_dreamer,2026-01-12T12:48:57.268267,deathmatch,deathmatch,DreamerV3,RSSM,/home/darkstar/Workspace/ai/rl/doom-agent/results/ablations/test_no_bc
 20260112-213536_dreamer,2026-01-12T21:35:36.745895,deathmatch,deathmatch,DreamerV3,RSSM,/home/darkstar/Workspace/ai/rl/doom-agent/results/verification/baseline
 20260112-220736_dreamer,2026-01-12T22:07:36.189940,deathmatch,deathmatch,DreamerV3,RSSM,/home/darkstar/Workspace/ai/rl/doom-agent/results/verification/no_bc
+20260203-004702_dreamer,2026-02-03T00:47:02.152020,deathmatch,deathmatch,DreamerV3,RSSM,/home/darkstar/Workspace/ai/rl/doom-agent/results/verification/baseline
+20260203-230136_dreamer,2026-02-03T23:01:36.975820,deathmatch,deathmatch,DreamerV3,RSSM,/home/darkstar/Workspace/ai/rl/doom-agent/results/verification/baseline
+20260203-233524_dreamer,2026-02-03T23:35:24.411315,deathmatch,deathmatch,DreamerV3,RSSM,/home/darkstar/Workspace/ai/rl/doom-agent/results/verification/no_bc

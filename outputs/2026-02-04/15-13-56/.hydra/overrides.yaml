@@ -1,0 +1,8 @@
+- scenario=defend_the_center
+- agent.batch_size=2
+- agent.batch_length=4
+- agent.prefill_steps=10
+- agent.train_every=5
+- agent.n_envs=1
+- device=cpu
+- scenario.curriculum.stages.0.timesteps=5

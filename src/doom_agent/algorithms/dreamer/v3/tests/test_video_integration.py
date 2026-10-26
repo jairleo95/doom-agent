@@ -18,13 +18,13 @@ def test_video_callback():
     
     # Mock Env
     eval_env = MagicMock()
-    # Return a dummy observation (64, 64, 1) uint8
-    dummy_obs = np.random.randint(0, 256, (64, 64, 1), dtype=np.uint8)
+    # Return a dummy observation (64, 64, 3) uint8 - RGB
+    dummy_obs = np.random.randint(0, 256, (64, 64, 3), dtype=np.uint8)
     eval_env.reset.return_value = dummy_obs
     eval_env.step.side_effect = [
-        (dummy_obs, 0.0, False),
-        (dummy_obs, 0.0, False),
-        (dummy_obs, 0.0, True),
+        (dummy_obs, 0.0, False, {}),
+        (dummy_obs, 0.0, False, {}),
+        (dummy_obs, 0.0, True, {}),
     ]
     
     # Mock Agent

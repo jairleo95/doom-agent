@@ -1,0 +1,13 @@
+{
+  "episode_rewards": [],
+  "episode_lengths": [],
+  "episode_times": [],
+  "world_model_losses": [],
+  "actor_losses": [],
+  "critic_losses": [],
+  "eval_mean_rewards": [],
+  "eval_mean_lengths": [],
+  "frags": [],
+  "health": [],
+  "ammo": []
+}

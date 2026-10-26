@@ -75,12 +75,20 @@ class VideoRecorderCallback:
             done = False
 
             while not done:
-                frames.append(self._obs_to_frame(obs))
+                # Ensure we have a clean copy for the list
+                frame = self._obs_to_frame(obs)
+                if isinstance(frame, np.ndarray):
+                    frame = frame.copy()
+                frames.append(frame)
+                
                 action = self.agent.select_action(obs, eval_mode=True)
                 obs, reward, done, info = self.eval_env.step(action)
 
         if frames:
             save_file = os.path.join(self.save_path, f"{self.name_prefix}{suffix}.gif")
-            # use duration instead of fps to avoid DeprecationWarning (duration is in ms)
-            imageio.mimsave(save_file, frames, duration=1000/self.fps)
-            print(f"  Saved video: {save_file}")
+            try:
+                # use duration instead of fps to avoid DeprecationWarning (duration is in ms)
+                imageio.mimsave(save_file, frames, duration=1000/self.fps)
+                print(f"  Saved video: {save_file}")
+            except Exception as e:
+                print(f"  Failed to save video {save_file}: {e}")

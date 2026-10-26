@@ -1,0 +1,4 @@
+RunID,Date,Scenario,Curriculum,Policy,Model,LogDir
+20260204-151356_dreamer,2026-02-04T15:13:56.966569,defend_the_center,defend_the_center,DreamerV3,RSSM,/home/darkstar/Workspace/ai/rl/doom-agent/outputs/2026-02-04/15-13-56
+20260204-151507_dreamer,2026-02-04T15:15:07.009151,defend_the_center,defend_the_center,DreamerV3,RSSM,/home/darkstar/Workspace/ai/rl/doom-agent/outputs/2026-02-04/15-15-06
+20260222-211512_dreamer,2026-02-22T21:15:12.500960,deathmatch,deathmatch,DreamerV3,RSSM,/home/darkstar/Workspace/ai/rl/doom-agent/outputs/2026-02-22/21-15-12

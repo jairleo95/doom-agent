@@ -1,0 +1,61 @@
+agent:
+  obs_shape:
+  - 64
+  - 64
+  - 3
+  action_dim: 12
+  batch_size: 2
+  batch_length: 4
+  train_every: 5
+  train_steps: 1
+  prefill_steps: 10
+  expl_until: 0
+  expl_behavior: greedy
+  precision: 16
+  compile: false
+  grayscale: false
+  device: ${device}
+  n_envs: 1
+  dyn_deter: 512
+  dyn_hidden: 512
+  units: 512
+  imag_horizon: 15
+  pretrain_bc: false
+  pretrain_bc_path: data/expert_replays
+  pretrain_steps: 0
+  symmetry: true
+  reward_shaping: true
+scenario:
+  name: defend_the_center
+  scenario_name: defend_the_center
+  curriculum:
+    stages:
+    - name: skill2_warmup
+      timesteps: 5
+      doom_skill: 2
+      living_reward: -0.005
+      frame_skip: 4
+      health_penalty: 0.05
+      ammo_penalty: 0.01
+    - name: skill4_target
+      timesteps: 5
+      doom_skill: 4
+      living_reward: 0.0
+      frame_skip: 4
+      health_penalty: 0.1
+      ammo_penalty: 0.05
+device: cpu
+seed: 0
+resume: null
+start_stage: 0
+video_freq: 50000
+visualize: false
+wandb:
+  enabled: true
+  project: doom-agent
+  entity: jairleo95
+  group: dreamer-v3
+  name: null
+  mode: online
+  save_artifacts: true
+  save_best_only: true

@@ -1,101 +1,132 @@
-# doom-agent
+# 🎮 doom-agent
 
-Reinforcement learning experiments for VizDoom (PPO, A2C, A3C, DQN variants, DDPG, and DreamerV3).
+Plataforma integral de experimentación y benchmarking de **Aprendizaje por Refuerzo Profundo (DRL)** sobre el simulador [ViZDoom](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/scenarios). El proyecto abarca desde métodos clásicos libres de modelo (DQN, A2C, PPO) hasta arquitecturas de vanguardia basadas en modelos de mundo (**World Models / DreamerV3**) y aprendizaje por imitación (**Behavior Cloning**).
 
-## Project layout
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+[![PyTorch 2.x](https://img.shields.io/badge/PyTorch-2.x-orange.svg)](https://pytorch.org/)
+[![ViZDoom](https://img.shields.io/badge/ViZDoom-FPS%20Sim-red.svg)](https://vizdoom.farama.org/)
+[![Hydra](https://img.shields.io/badge/Config-Hydra-green.svg)](https://hydra.cc/)
+[![WandB](https://img.shields.io/badge/Tracking-WandB-yellow.svg)](https://wandb.ai/)
 
-- `src/doom_agent/algorithms/`: Hierarchical organization of RL algorithms.
-  - `ppo/`: PPO versions (base, v2, v3, v4, v5).
-  - `dreamer/`: Model-based RL (DreamerV3).
-  - `a2c/`: A2C variants (base, v1, v2, defend_center).
-  - `dqn/`: DQN and DDDQN variants.
-  - `a3c/`, `ddpg/`: Other implementations.
-- `src/doom_agent/common/`: shared neural network helpers and monitoring utilities for Stable-Baselines agents.
-- `src/doom_agent/wrappers/`: VizDoom environment wrappers (Gym-style and custom frame-stack wrappers).
-- `src/doom_agent/scenarios/`: VizDoom scenario configs and WAD assets used across experiments.
+---
 
-## Highlights: DreamerV3
+## 📑 Índice de Documentación
 
-The latest and most advanced agent in this repository is **DreamerV3**, located in `src/doom_agent/algorithms/dreamer/v3/`.
+Para una inmersión detallada en los diferentes aspectos del proyecto, consulta los módulos especializados:
 
-- **Key Features**: Model-based imagination, Symmetry Augmentation (Mirror Learning), RGB Training, and detailed gameplay analytics.
-- **Usage**:
+- 🏛️ **[Arquitectura de Software y Principios SOLID](file:///home/darkstar/Workspace/ai/rl/doom-agent/docs/ARCHITECTURE.md)**: Estructura del código, patrones de diseño, flujo de datos y diagramas de secuencia.
+- 🔬 **[Benchmarking Científico y Baselines SOTA](file:///home/darkstar/Workspace/ai/rl/doom-agent/docs/BENCHMARKS.md)**: Comparativas reproducibles frente a campeones históricos (*Arnold 2017*, *Intel DFP 2016*, *Sample Factory 2022*).
+- ⚡ **[Guía de Entrenamiento y Perfiles de Hardware](file:///home/darkstar/Workspace/ai/rl/doom-agent/docs/HARDWARE_AND_TRAINING.md)**: Despliegue en GPUs locales (*RTX 3060/5090/6000 Ada*) o instancias de nube (*NVIDIA H200*).
+- 🧠 **[Fundamentos Teóricos y Matemáticos](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/THEORY.md)**: Derivación del RSSM, SymLog scaling e Imitation Learning (Behavior Cloning).
+- 📊 **[Resultados Experimentales](file:///home/darkstar/Workspace/ai/rl/doom-agent/RESULTS.md)**: Historial de ejecuciones, recompensas alcanzadas y métricas de combate.
 
-  ```bash
-  python src/doom_agent/algorithms/dreamer/v3/train.py --scenario deathmatch
-  ```
+---
 
-## Highlights: PPO v5
+## 🚀 Inicio Rápido (Quickstart)
 
-A robust model-free baseline with sequential curriculum training.
+### 1. Instalación de Dependencias
 
-- **Location**: `src/doom_agent/algorithms/ppo/v5/`.
-- **Usage**:
+```bash
+# Clonar e inicializar entorno virtual
+python -m venv venv
+source venv/bin/activate
 
-  ```bash
-  python src/doom_agent/algorithms/ppo/v5/train.py --scenario deadly_corridor
-  ```
+# Instalar dependencias esenciales
+pip install -r requirements_cloud.txt
+```
 
-## 📊 SOTA Benchmarking: Arnold
+### 2. Exportar la Raíz del Código
 
-This repository includes an integration of the **Arnold agent** (2017 ViZDoom Champion) as a State-of-the-Art benchmark.
+```bash
+export PYTHONPATH="$(pwd)/src:$(pwd)"
+```
 
-- **Location**: `external/arnold/` and `scripts/arnold_adapter.py`.
-- **Validation**: Compare Arnold's behavior against your reward shaping incentives using the "BOSS MODE" SPECTATOR.
-- **Usage**:
+### 3. Entrenar el Agente SOTA (DreamerV3)
 
-  ```bash
-  python scripts/test_reward_shaping.py --arnold
-  ```
+```bash
+# Lanzar entrenamiento en escenario deathmatch con perfil para GPU local
+python src/doom_agent/algorithms/dreamer/v3/train.py \
+  scenario=deathmatch \
+  hardware=rtx3060 \
+  wandb.enabled=false \
+  device=cuda
+```
 
-## 🧠 SOTA Benchmarking: Intel DFP
+### 4. Probar Incentivos con el Validador de Recompensas
 
-In addition to Arnold, we have integrated the **Intel Direct Future Prediction (DFP)** agent, winner of the 2016 ViZDoom Track 1.
+Prueba la física de recompensas en tiempo real controlando manualmente al agente antes de comenzar entrenamientos costosos:
 
-- **Location**: `external/dfp/` and `scripts/dfp_adapter.py`.
-- **Compatibility**: Legacy TensorFlow 1.x code automatically patched for TF 2.x execution using `compat.v1`.
-- **Usage**:
+```bash
+# Modo manual interactivo (W/A/S/D + mouse/espacio)
+python scripts/test_reward_shaping.py --manual
 
-  ```bash
-  # First time setup
-  bash scripts/setup_dfp.sh
-  # Run benchmark
-  python scripts/test_reward_shaping.py --dfp
-  ```
+# Modo espectador sobre un agente entrenado
+python scripts/test_reward_shaping.py --agent_run <RUN_ID>
+```
 
-## 🧪 Reward Shaping Validator
+---
 
-A real-time tool to validate incentives (Hunger, Movement, Frags) before long training runs.
+## 🤖 Catálogo de Algoritmos Implementados
 
-- **Manual Mode**: Test the feel of your rewards by playing as the agent.
-- **AI Mode**: Evaluate a specific DreamerV3 checkpoint.
-- **Arnold Mode**: Benchmark against the legendary champion.
-- **Usage**:
+| Algoritmo | Familia | Ubicación en el Repositorio | Descripción / Estado |
+|---|---|---|---|
+| **DreamerV3** | Model-Based RL | [src/doom_agent/algorithms/dreamer/v3](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3) | **Agente insignia**. Aprendizaje en espacio latente (*RSSM*), aumentación simétrica y currículo adaptativo. |
+| **PPO (v1 - v5)** | Policy Gradient | [src/doom_agent/algorithms/ppo](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/ppo) | Baselines basados en Stable-Baselines3. PPO v5 implementa currículo de habilidades en *Deadly Corridor*. |
+| **DQN / DDDQN** | Value-Based | [src/doom_agent/algorithms/dqn](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dqn) | Deep Q-Networks con extensiones Dueling y Double DQN sobre frames preprocesados. |
+| **A2C / A3C** | Actor-Critic | [src/doom_agent/algorithms/a2c](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/a2c), [a3c](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/a3c) | Implementaciones sincrónicas y asincrónicas en entornos de acción continua y discreta. |
+| **DDPG** | Deterministic Policy | [src/doom_agent/algorithms/ddpg](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/ddpg) | Variante para espacios de acción continua con red crítica profunda. |
 
-  ```bash
-  # Manual control (W/S/A/D/Q/E/Space)
-  python scripts/test_reward_shaping.py --manual
+---
 
-  # AI Spectator (DreamerV3)
-  python scripts/test_reward_shaping.py --agent_run <RUN_ID>
-  ```
+## 🏆 Suite de Benchmarking SOTA
 
-## 📚 Scientific Foundation
+El proyecto incluye adaptadores para enfrentar a DreamerV3 contra los mayores referentes competitivos de ViZDoom:
 
-This project is built upon several seminal works in the field of Reinforcement Learning. For a detailed explanation of the theory behind DreamerV3 and the historical SOTA agents (Arnold, DFP), please refer to the **[THEORY.md](file:///home/darkstar/Workspace/ai/rl/doom-agent/src/doom_agent/algorithms/dreamer/v3/THEORY.md)** documentation.
+```mermaid
+pie title Distribución de Evaluación en Deathmatch (Scientific Benchmark)
+    "DreamerV3 (Propuesto)" : 30
+    "Arnold (Campeón 2017)" : 30
+    "Intel DFP (Campeón 2016)" : 30
+    "Sample Factory (2022)" : 30
+    "Random (Baseline)" : 30
+```
 
-### Core References
+Para reproducir la evaluación científica estandarizada:
+```bash
+python scripts/run_scientific_benchmark.py
+```
+Consulta la guía completa en [docs/BENCHMARKS.md](file:///home/darkstar/Workspace/ai/rl/doom-agent/docs/BENCHMARKS.md).
 
-- **DreamerV3**: Hafner et al. (2023)
-- **Arnold**: Lample & Chaplot (2017)
-- **Direct Future Prediction**: Dosovitskiy & Koltun (2016)
+---
 
-## Running code
+## 📂 Estructura del Repositorio
 
-1) Install dependencies: `pip install -r requirements_tf_gpu.yaml` (legacy) or ensure `torch`, `vizdoom`, `opencv-python` are installed.
-2) Expose the source layout: `export PYTHONPATH="$(pwd)/src"`.
-3) Run an experiment, e.g.:
-   - `python src/doom_agent/algorithms/dreamer/v3/train.py --scenario deathmatch`
-   - `python src/doom_agent/algorithms/ppo/v4/train_deadly_corridor.py` (Stable-Baselines3)
+```
+doom-agent/
+├── src/doom_agent/
+│   ├── algorithms/       # Algoritmos RL modulares (dreamer/v3, ppo, dqn, a2c, ddpg)
+│   ├── common/           # Redes neuronales comunes, monitores de SB3 y métricas
+│   ├── data/             # OfflineDoomDataset para Behavior Cloning (.npz)
+│   ├── scenarios/        # Archivos de configuración (.cfg) y mapas (.wad) de ViZDoom
+│   ├── utils/            # Memoria de experiencia, schedulers lineales y utilidades
+│   └── wrappers/         # Wrappers de entorno (DoomDreamerEnv, Gym wrappers)
+├── docs/                 # Documentación técnica, papers y esquemas arquitectónicos
+│   ├── ARCHITECTURE.md   # Arquitectura de software y principios de diseño
+│   ├── BENCHMARKS.md     # Comparativas y metodología de evaluación SOTA
+│   └── HARDWARE_AND_TRAINING.md # Guía de aceleración por GPU y computación cloud
+├── scripts/              # Herramientas de benchmarking, adaptadores y validación
+├── external/             # Modelos preentrenados y código fuente de Arnold y DFP
+├── results/              # Manifiestos de corridas, métricas y gráficas exportadas
+└── tests/                # Pruebas automatizadas y suites de verificación
+```
 
-Scenario paths are resolved through `doom_agent.paths.scenario_path`, so experiments can be launched from the repository root without changing directories.
+---
+
+## 📜 Licencia y Referencias
+
+El código de este repositorio está desarrollado bajo fines de investigación académica en Inteligencia Artificial y Aprendizaje por Refuerzo.
+
+### Citas Relevantes
+- **DreamerV3**: Hafner et al. (2023) *Mastering Diverse Domains through World Models*.
+- **Arnold**: Lample & Chaplot (2017) *Playing FPS Games with Deep Reinforcement Learning*.
+- **Direct Future Prediction**: Dosovitskiy & Koltun (2016) *Learning to Act by Predicting the Future*.

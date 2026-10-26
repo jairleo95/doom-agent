@@ -88,6 +88,25 @@ sequenceDiagram
 
 ---
 
+## 4. Advanced Strategies
+
+### 4.1 Hierarchical Curriculum Learning
+
+To optimize convergence, we employ a dynamic curriculum:
+
+1. **Warmup**: Low difficulty, simplified reward structure to ground the world model.
+2. **Dynamic Transition**: Stages transition automatically when the agent exceeds a `target_reward` for $N$ consecutive episodes.
+3. **Task-Specific Priors**: In advanced stages (e.g., Deathmatch), the agent uses specialized action sets to reduce the exploration space.
+
+### 4.2 Behavior Strategy: Hunger & Movement
+
+We combat the "Camping" problem through:
+
+- **Metabolic Cost**: A small negative living reward that scales with difficulty.
+- **Net Displacement Recognition**: Encourages non-looping exploration by rewarding distance from recent position history.
+
+---
+
 ## 4. Academic References
 
 - **DreamerV3**: Hafner et al. (2023). Mastering Diverse Domains through World Models. *arXiv:2301.04104*.
